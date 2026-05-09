@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { RootStackScreenProps } from '../navigation/types';
 
+
 export default function CategorySelection({
   navigation,
 }: RootStackScreenProps<'CategorySelection'>) {
