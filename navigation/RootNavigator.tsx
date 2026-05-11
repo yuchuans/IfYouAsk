@@ -57,7 +57,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Reflection"
         component={Reflection}
-        options={{ title: 'Reflection' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="DesignSystemTest"
