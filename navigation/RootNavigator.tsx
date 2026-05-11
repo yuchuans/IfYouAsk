@@ -18,7 +18,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Welcome"
         component={Welcome}
-        options={{ title: 'Welcome' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="NameEntry"
