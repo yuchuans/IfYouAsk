@@ -1,5 +1,6 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Button } from '../src/components/Button';
 import { Body, Heading, Label } from '../src/components/typography';
 import { colors, shadows, typography } from '../src/theme';
 
@@ -83,6 +84,30 @@ export default function DesignSystemTest() {
           <View style={[styles.shadowCard, shadows.cardButton]} />
         </View>
         <Label>shadows.cardButton</Label>
+      </View>
+
+      {/* Section 4 — Button */}
+      <View style={styles.section}>
+        <Heading variant="bold">Section 4 — Button</Heading>
+
+        <Button label="Start" onPress={() => Alert.alert('Pressed')} />
+        <Label>Active — fires Alert on tap</Label>
+
+        <Button label="Continue" disabled onPress={() => {}} />
+        <Label>Disabled — opacity 0.4, press is a no-op</Label>
+
+        <Button
+          label="Start a new conversation now"
+          onPress={() => Alert.alert('Pressed')}
+        />
+        <Label>Long label — stress-tests horizontal padding</Label>
+
+        <Button
+          label="Stretched"
+          onPress={() => Alert.alert('Pressed')}
+          style={{ width: '100%' }}
+        />
+        <Label>Stretched — caller-stretch escape hatch via style prop</Label>
       </View>
     </ScrollView>
   );
