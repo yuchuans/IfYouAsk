@@ -7,6 +7,7 @@ export type RootStackParamList = {
   CategorySelection: undefined;
   QuestionCard: undefined;
   Reflection: undefined;
+  DesignSystemTest: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

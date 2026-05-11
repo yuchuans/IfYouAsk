@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Pressable, Text } from 'react-native';
 
 import CategorySelection from '../screens/CategorySelection';
+import DesignSystemTest from '../screens/DesignSystemTest';
 import FirstPlayerSelection from '../screens/FirstPlayerSelection';
 import NameEntry from '../screens/NameEntry';
 import QuestionCard from '../screens/QuestionCard';
@@ -57,6 +58,11 @@ export default function RootNavigator() {
         name="Reflection"
         component={Reflection}
         options={{ title: 'Reflection' }}
+      />
+      <Stack.Screen
+        name="DesignSystemTest"
+        component={DesignSystemTest}
+        options={{ title: 'Design System' }}
       />
     </Stack.Navigator>
   );

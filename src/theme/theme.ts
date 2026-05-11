@@ -65,14 +65,14 @@ export const typography = {
     fontFamily: 'Lora_600SemiBold',
     fontSize: 28,
     fontWeight: '600',
-    lineHeight: 34,
+    lineHeight: 36,
     letterSpacing: 0,
   },
   headingBold: {
     fontFamily: 'Lora_700Bold',
     fontSize: 28,
     fontWeight: '700',
-    lineHeight: 34,
+    lineHeight: 36,
     letterSpacing: 0,
   },
   subheading: {
@@ -80,11 +80,11 @@ export const typography = {
     fontSize: 20,
     fontWeight: '400',
     lineHeight: 24,
-    letterSpacing: -2,
+    letterSpacing: -0.4,
   },
   body: {
     fontFamily: 'DMSans_400Regular',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '400',
     lineHeight: 20,
     letterSpacing: 0,
@@ -142,14 +142,14 @@ export const typography = {
     fontFamily: 'DMSans_400Regular',
     fontSize: 16,
     fontWeight: '400',
-    lineHeight: 16, // Figma reported 100% (auto) → equal to fontSize
+    lineHeight: 20, // Figma reported 100% (auto) → equal to fontSize
     letterSpacing: 0,
   },
   inputName: {
     fontFamily: 'DMSans_500Medium',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 16.5,
+    lineHeight: 18,
     letterSpacing: 0.55,
   },
   round: {
