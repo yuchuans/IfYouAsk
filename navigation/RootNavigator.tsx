@@ -23,7 +23,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="NameEntry"
         component={NameEntry}
-        options={{ title: 'Your Names', headerBackVisible: false, gestureEnabled: false }}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="FirstPlayerSelection"
