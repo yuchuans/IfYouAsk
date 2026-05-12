@@ -13,16 +13,17 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.container}>
+      <View style={styles.topBar}>
         <IconButton
           icon="←"
           label="Back"
           onPress={() => navigation.navigate('CategorySelection')}
           hitSlop={12}
-          style={styles.backButton}
           accessibilityLabel="Back to category selection"
         />
+      </View>
 
+      <View style={styles.container}>
         <View style={styles.imageFrame}>
           <Image
             source={require('../assets/images/reflection.png')}
@@ -73,10 +74,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.cream,
   },
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    alignItems: 'flex-start',
+  },
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 40,
     alignItems: 'center',
   },
@@ -85,7 +90,7 @@ const styles = StyleSheet.create({
     height: IMAGE_FRAME_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
-    marginTop: 96,
+    marginTop: 64,
   },
   image: {
     width: IMAGE_ART_WIDTH,
@@ -124,12 +129,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 80,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    zIndex: 1,
   },
   cta: {
     width: '100%',

@@ -28,7 +28,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="FirstPlayerSelection"
         component={FirstPlayerSelection}
-        options={{ title: 'Who Goes First?', headerBackVisible: false, gestureEnabled: false }}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="CategorySelection"

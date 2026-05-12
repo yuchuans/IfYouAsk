@@ -3,7 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 export type RootStackParamList = {
   Welcome: undefined;
   NameEntry: undefined;
-  FirstPlayerSelection: undefined;
+  FirstPlayerSelection: { player1: string; player2: string };
   CategorySelection: undefined;
   QuestionCard: undefined;
   Reflection: undefined;

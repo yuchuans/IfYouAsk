@@ -81,7 +81,12 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
           <Button
             label="Continue"
             disabled={!canContinue}
-            onPress={() => navigation.navigate('FirstPlayerSelection')}
+            onPress={() =>
+              navigation.navigate('FirstPlayerSelection', {
+                player1: player1.trim(),
+                player2: player2.trim(),
+              })
+            }
             style={styles.cta}
           />
         </View>
@@ -101,7 +106,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 43,
     paddingBottom: 40,
     alignItems: 'center',
   },
