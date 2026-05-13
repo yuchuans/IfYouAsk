@@ -86,7 +86,16 @@ export default function FirstPlayerSelection({
         <Button
           label="Continue"
           disabled={selectedPlayer === null}
-          onPress={() => navigation.navigate('CategorySelection')}
+          onPress={() => {
+            // Disabled until selectedPlayer is set, so the assertion is safe.
+            if (selectedPlayer === null) return;
+            navigation.navigate('CategorySelection', {
+              player1,
+              player2,
+              askingPlayer: selectedPlayer,
+              round: 1,
+            });
+          }}
           style={styles.cta}
         />
       </View>

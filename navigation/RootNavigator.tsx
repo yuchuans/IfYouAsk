@@ -1,5 +1,4 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Pressable, Text } from 'react-native';
 
 import CategorySelection from '../screens/CategorySelection';
 import DesignSystemTest from '../screens/DesignSystemTest';
@@ -33,21 +32,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="CategorySelection"
         component={CategorySelection}
-        options={({ navigation }) => ({
-          title: 'Pick a Category',
-          headerBackVisible: false,
-          gestureEnabled: false,
-          headerRight: () => (
-            <Pressable
-              onPress={() => navigation.navigate('Reflection')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="End session"
-            >
-              <Text style={{ fontSize: 18 }}>✕</Text>
-            </Pressable>
-          ),
-        })}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="QuestionCard"

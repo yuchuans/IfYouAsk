@@ -17,7 +17,7 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
         <IconButton
           icon="←"
           label="Back"
-          onPress={() => navigation.navigate('CategorySelection')}
+          onPress={() => navigation.goBack()}
           hitSlop={12}
           accessibilityLabel="Back to category selection"
         />

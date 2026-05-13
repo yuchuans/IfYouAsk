@@ -31,6 +31,7 @@ export const colors = {
     tertiary: '#3d353080',
     digDeepCard: '#c9efff',
     justVibingCard: '#ffc9dc',
+    waitWhatCard: '#6257a8',
   },
   icon: {
     primary: '#3d3530',

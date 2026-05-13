@@ -4,6 +4,7 @@ import {
   StyleProp,
   StyleSheet,
   Text,
+  TextStyle,
   ViewStyle,
 } from 'react-native';
 
@@ -16,6 +17,13 @@ export type IconButtonProps = Omit<PressableProps, 'children' | 'style'> & {
   label?: string;
   /** Outer style override (typically used for positioning — absolute placement, margin, etc.). */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Style override applied to the icon glyph only (not the label). Use this
+   * when a glyph's cap-height doesn't match neighboring icons at the default
+   * 18px size — e.g. `✕` reads shorter than `←` at the same font size, so
+   * pages that show both side by side can bump the X to fontSize ≈ 22.
+   */
+  iconStyle?: StyleProp<TextStyle>;
 };
 
 /**
@@ -26,7 +34,13 @@ export type IconButtonProps = Omit<PressableProps, 'children' | 'style'> & {
  *
  * For the filled CTA pattern, use Button instead.
  */
-export function IconButton({ icon, label, style, ...rest }: IconButtonProps) {
+export function IconButton({
+  icon,
+  label,
+  style,
+  iconStyle,
+  ...rest
+}: IconButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -38,7 +52,7 @@ export function IconButton({ icon, label, style, ...rest }: IconButtonProps) {
         style,
       ]}
     >
-      <Text style={styles.text}>{icon}</Text>
+      <Text style={[styles.text, iconStyle]}>{icon}</Text>
       {label && <Text style={styles.text}>{label}</Text>}
     </Pressable>
   );

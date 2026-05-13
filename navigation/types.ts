@@ -4,7 +4,14 @@ export type RootStackParamList = {
   Welcome: undefined;
   NameEntry: undefined;
   FirstPlayerSelection: { player1: string; player2: string };
-  CategorySelection: undefined;
+  CategorySelection: {
+    player1: string;
+    player2: string;
+    /** Which player asks this round. The other player shares. */
+    askingPlayer: 1 | 2;
+    /** 1-indexed round number. Increments after each question is viewed (wired in Phase 4). */
+    round: number;
+  };
   QuestionCard: undefined;
   Reflection: undefined;
   DesignSystemTest: undefined;
