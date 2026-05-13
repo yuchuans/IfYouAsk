@@ -37,7 +37,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="QuestionCard"
         component={QuestionCard}
-        options={{ title: 'Question' }}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="Reflection"

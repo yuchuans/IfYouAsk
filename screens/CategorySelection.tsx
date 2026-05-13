@@ -89,9 +89,10 @@ export default function CategorySelection({
             <CategoryCard
               key={cat.id}
               category={cat}
-              // TODO: Phase 4 — pass { ...route.params, category: cat.id } so
-              // QuestionCard can pick a question from the right pool.
-              onPress={() => navigation.navigate('QuestionCard')}
+              // Phase 3: only the category is wired through. Phase 4 will also
+              // forward { player1, player2, askingPlayer, round } so QuestionCard
+              // can render the asker + round counter + pick a real question.
+              onPress={() => navigation.navigate('QuestionCard', { category: cat.id })}
             />
           ))}
         </View>

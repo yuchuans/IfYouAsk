@@ -12,7 +12,10 @@ export type RootStackParamList = {
     /** 1-indexed round number. Increments after each question is viewed (wired in Phase 4). */
     round: number;
   };
-  QuestionCard: undefined;
+  QuestionCard: {
+    /** Which category card the player chose on CategorySelection. */
+    category: 'justVibing' | 'digDeep' | 'waitWhat';
+  };
   Reflection: undefined;
   DesignSystemTest: undefined;
 };
