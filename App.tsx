@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,6 +18,7 @@ import {
 } from '@expo-google-fonts/dm-sans';
 
 import RootNavigator from './navigation/RootNavigator';
+import { GameProvider } from './src/context/GameContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* preventAutoHideAsync may reject if the splash already hid; safe to ignore. */
@@ -44,11 +46,19 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <RootNavigator />
-        <StatusBar style="auto" />
-      </NavigationContainer>
-    </SafeAreaProvider>
+    // GestureHandlerRootView must be the outermost wrapper for
+    // react-native-gesture-handler to detect touches on any descendants.
+    // The flex:1 style is critical — without it the wrapper collapses to
+    // zero height and nothing inside renders.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <GameProvider>
+          <NavigationContainer>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </NavigationContainer>
+        </GameProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

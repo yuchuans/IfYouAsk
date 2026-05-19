@@ -1,20 +1,20 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import type { CategoryId } from '../src/data/questions';
+
+// Game-session state (player names, asker, round, used questions) lives in
+// GameContext (src/context/GameContext.tsx), not in nav params. Routes only
+// carry data that's specific to the *next screen instance* — e.g., which
+// category card the user tapped on the way into QuestionCard. Everything
+// else screens need is read via useGame().
 export type RootStackParamList = {
   Welcome: undefined;
   NameEntry: undefined;
-  FirstPlayerSelection: { player1: string; player2: string };
-  CategorySelection: {
-    player1: string;
-    player2: string;
-    /** Which player asks this round. The other player shares. */
-    askingPlayer: 1 | 2;
-    /** 1-indexed round number. Increments after each question is viewed (wired in Phase 4). */
-    round: number;
-  };
+  FirstPlayerSelection: undefined;
+  CategorySelection: undefined;
   QuestionCard: {
     /** Which category card the player chose on CategorySelection. */
-    category: 'justVibing' | 'digDeep' | 'waitWhat';
+    category: CategoryId;
   };
   Reflection: undefined;
   DesignSystemTest: undefined;

@@ -11,13 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '../navigation/types';
 import { Button } from '../src/components/Button';
 import { Body, Heading, Label } from '../src/components/typography';
+import { useGame } from '../src/context/GameContext';
 import { colors, typography } from '../src/theme';
 
 export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntry'>) {
-  // TODO: Phase 4 — pass player1 / player2 via navigation params to
-  // FirstPlayerSelection and beyond. Downstream screens use the FIRST LETTER
-  // of each name as the player's avatar initial, so do NOT truncate or set
-  // maxLength here — names must keep their first character intact.
+  const { startGame } = useGame();
+
+  // Names are written to GameContext on Continue (not passed via nav params).
+  // Downstream screens use the FIRST LETTER of each name as the player's
+  // avatar initial, so do NOT truncate or set maxLength here — names must
+  // keep their first character intact.
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
 
@@ -81,12 +84,10 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
           <Button
             label="Continue"
             disabled={!canContinue}
-            onPress={() =>
-              navigation.navigate('FirstPlayerSelection', {
-                player1: player1.trim(),
-                player2: player2.trim(),
-              })
-            }
+            onPress={() => {
+              startGame(player1.trim(), player2.trim());
+              navigation.navigate('FirstPlayerSelection');
+            }}
             style={styles.cta}
           />
         </View>

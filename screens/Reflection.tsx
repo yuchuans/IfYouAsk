@@ -5,11 +5,18 @@ import type { RootStackScreenProps } from '../navigation/types';
 import { Button } from '../src/components/Button';
 import { IconButton } from '../src/components/IconButton';
 import { Body, Heading } from '../src/components/typography';
+import { useGame } from '../src/context/GameContext';
 import { colors } from '../src/theme';
 
 export default function Reflection({ navigation }: RootStackScreenProps<'Reflection'>) {
-  // TODO: Phase 4 — pass via navigation params from QuestionCard.
-  const roundsPlayed = 18;
+  const { round, resetGame } = useGame();
+
+  // `round` is the *next* round about to be played; the number of rounds the
+  // players actually completed is round - 1. Reaches 0 if the user hits ✕ on
+  // CategorySelection without playing any rounds; the headline copy reads
+  // slightly oddly in that case ("You're 0 steps closer to each other") but
+  // it's a realistic edge that we'll leave as-is rather than add a guard.
+  const roundsPlayed = round - 1;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -53,7 +60,10 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
           </View>
           <Button
             label="New Game"
-            onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })}
+            onPress={() => {
+              resetGame();
+              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+            }}
             style={styles.cta}
           />
         </View>

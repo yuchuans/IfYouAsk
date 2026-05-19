@@ -2,15 +2,18 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { RootStackScreenProps } from '../navigation/types';
-import { CategoryIcon, type CategoryIconName } from '../src/components/CategoryIcon';
+import { CategoryIcon } from '../src/components/CategoryIcon';
 import { IconButton } from '../src/components/IconButton';
 import { Body, Heading, Label } from '../src/components/typography';
+import { useGame } from '../src/context/GameContext';
+import type { CategoryId } from '../src/data/questions';
 import { colors, shadows, typography } from '../src/theme';
 
-// Phase 3: hardcoded category metadata. Phase 4 will move this (and the
-// per-category question pools) into src/data/categories.ts.
+// Category-card metadata for the three picker cards: display name, body
+// copy, and per-card colors. UI-presentation data only — the question
+// pools live in src/data/questions.ts and are looked up by CategoryId.
 type Category = {
-  id: CategoryIconName;
+  id: CategoryId;
   name: string;
   body: string;
   bg: string;
@@ -43,9 +46,8 @@ const CATEGORIES: readonly Category[] = [
 
 export default function CategorySelection({
   navigation,
-  route,
 }: RootStackScreenProps<'CategorySelection'>) {
-  const { player1, player2, askingPlayer, round } = route.params;
+  const { player1, player2, askingPlayer, round } = useGame();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -89,9 +91,6 @@ export default function CategorySelection({
             <CategoryCard
               key={cat.id}
               category={cat}
-              // Phase 3: only the category is wired through. Phase 4 will also
-              // forward { player1, player2, askingPlayer, round } so QuestionCard
-              // can render the asker + round counter + pick a real question.
               onPress={() => navigation.navigate('QuestionCard', { category: cat.id })}
             />
           ))}

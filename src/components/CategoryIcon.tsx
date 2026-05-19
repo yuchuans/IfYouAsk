@@ -1,5 +1,7 @@
 import { Path, Svg } from 'react-native-svg';
 
+import type { CategoryId } from '../data/questions';
+
 // Category icons from Figma (file IfYouAsk, container nodes 267:58 Just Vibing,
 // 267:68 Dig Deep, 267:78 Wait What). Path data exported verbatim from Figma's
 // SVG output. Each icon ships as an 88×88 viewBox so callers can scale uniformly
@@ -8,10 +10,8 @@ import { Path, Svg } from 'react-native-svg';
 // Source SVGs also live at assets/categories/{just_vibing,dig_deep,wait_what}.svg
 // for designer reference — these JSX renders are the runtime source of truth.
 
-export type CategoryIconName = 'justVibing' | 'digDeep' | 'waitWhat';
-
 type CategoryIconProps = {
-  name: CategoryIconName;
+  name: CategoryId;
   width?: number;
   height?: number;
 };

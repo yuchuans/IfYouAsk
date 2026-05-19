@@ -6,28 +6,14 @@ import type { RootStackScreenProps } from '../navigation/types';
 import { Button } from '../src/components/Button';
 import { IconButton } from '../src/components/IconButton';
 import { Body, Heading } from '../src/components/typography';
+import { useGame } from '../src/context/GameContext';
+import { STARTER_QUESTIONS } from '../src/data/questions';
 import { colors, typography } from '../src/theme';
-
-// TODO: Phase 4 — move to a real data source (e.g., src/data/questions.ts).
-// Warm-up questions used to pick who asks the first real question.
-// Easy, instant answers — no neutral outcomes.
-const STARTER_QUESTIONS = [
-  'Who got up first today?',
-  'Who can eat spicier food?',
-  "Who's wearing more colors?",
-  'Who is more likely to be late?',
-  'Who cooks better?',
-  'Whose birthday is sooner?',
-  'Who can snap fingers louder?',
-  'Who has warmer hands now?',
-  'Who takes more photos?',
-];
 
 export default function FirstPlayerSelection({
   navigation,
-  route,
 }: RootStackScreenProps<'FirstPlayerSelection'>) {
-  const { player1, player2 } = route.params;
+  const { player1, player2, setFirstAsker } = useGame();
 
   // Lazy initializer runs once on mount, so the random pick is stable across
   // re-renders (e.g., when the user taps a circle and selectedPlayer updates).
@@ -51,7 +37,7 @@ export default function FirstPlayerSelection({
         </Heading>
 
         <View style={styles.headingGroup}>
-          <Heading style={styles.centerText}>Pick who asks first:</Heading>
+          <Heading style={styles.centerText}>To start —</Heading>
           <Body variant="subheading" style={styles.subheading}>
             {question}
           </Body>
@@ -89,12 +75,8 @@ export default function FirstPlayerSelection({
           onPress={() => {
             // Disabled until selectedPlayer is set, so the assertion is safe.
             if (selectedPlayer === null) return;
-            navigation.navigate('CategorySelection', {
-              player1,
-              player2,
-              askingPlayer: selectedPlayer,
-              round: 1,
-            });
+            setFirstAsker(selectedPlayer);
+            navigation.navigate('CategorySelection');
           }}
           style={styles.cta}
         />
