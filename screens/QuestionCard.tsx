@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  interpolate,
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -74,6 +78,31 @@ function pickQuestion(category: CategoryId, used: readonly string[]): string {
 }
 
 /**
+ * Seed the 5-deep question queue that backs the visible card stack. Index
+ * meaning at any moment:
+ *   [0] — top white card's question (currently visible)
+ *   [1] — slot 1 (deeper back) FRONT-face question, preloaded for the next flip
+ *   [2] — slot 2 (middle back) eventual question
+ *   [3] — slot 3 (bottom back) eventual question
+ *   [4] — slot NEW, the card currently emerging from below
+ *
+ * localUsed grows as we pick, so the five initial questions are guaranteed
+ * distinct from each other AND from anything already shown this session.
+ * Exhaustion fallback inside pickQuestion still applies if a category's pool
+ * has been heavily used.
+ */
+function buildInitialStack(category: CategoryId, used: readonly string[]): string[] {
+  const stack: string[] = [];
+  const localUsed = [...used];
+  for (let i = 0; i < 5; i++) {
+    const q = pickQuestion(category, localUsed);
+    stack.push(q);
+    localUsed.push(q);
+  }
+  return stack;
+}
+
+/**
  * Length-based font-size tiers for the question text. The card has a fixed
  * height, so very long questions need a smaller size to fit comfortably.
  * Char count is an approximation of how text wraps but is plenty for three
@@ -97,87 +126,308 @@ export default function QuestionCard({
 
   const { usedQuestions, markQuestionUsed, nextRound } = useGame();
 
-  // Lazy initializer runs once on mount, picking the FIRST question for this
-  // entry into QuestionCard. Subsequent re-rolls (from swipe) call setQuestion
-  // directly via rollNewQuestion below.
-  const [question, setQuestion] = useState(() =>
-    pickQuestion(category, usedQuestions[category])
+  // Lazy initializer runs once per QuestionCard mount, drawing the five
+  // distinct questions that back the visible stack. Subsequent advances
+  // (from swipe commits) call setQuestionStack via advanceStack
+  // below — never re-running this initializer.
+  const [questionStack, setQuestionStack] = useState<string[]>(() =>
+    buildInitialStack(category, usedQuestions[category])
   );
 
-  // Register every question that lands as used so future picks skip it.
-  // Runs on initial mount AND after every setQuestion call from a swipe.
-  // markQuestionUsed dedupes in the Provider if the same question reappears
-  // (e.g., when pickQuestion's exhausted-pool fallback picks a previously-seen
-  // question).
-  useEffect(() => {
-    markQuestionUsed(category, question);
-  }, [category, question, markQuestionUsed]);
+  // Text on slot 1's white (front) face during a flip. Locked at swipe
+  // commit so React-driven setQuestionStack at cycle end doesn't change it
+  // while the front face is still visible.
+  const [flipFaceText, setFlipFaceText] = useState(questionStack[1]);
 
-  const sizedTextStyle = getSizedTextStyle(question.length);
+  // What the top white card (slot 0) shows. Set in advanceStack BEFORE the
+  // stack rotates so slot 0 is already showing the new top question by the
+  // time animations reset.
+  const [displayedTopQuestion, setDisplayedTopQuestion] = useState(
+    questionStack[0]
+  );
+
+  const pendingAnimReset = useRef(false);
+
+  const topQuestion = questionStack[0];
+
+  // Register the currently visible top question as used. Fires on initial
+  // mount AND every time the stack rotates (since topQuestion changes).
+  // advanceStack also explicitly marks the just-dismissed question
+  // before rotating, so for the rotation case the Provider's dedupe makes
+  // this a no-op. Belt-and-suspenders, but covers the initial-mount case
+  // cleanly without a separate effect.
+  useEffect(() => {
+    markQuestionUsed(category, topQuestion);
+  }, [category, topQuestion, markQuestionUsed]);
+
+  useLayoutEffect(() => {
+    if (!pendingAnimReset.current) return;
+    pendingAnimReset.current = false;
+
+    // React already committed the rotated questionStack and the new
+    // displayedTopQuestion (slot 0 already shows the new top question in
+    // this render). Snap every progress back to rest in one paint — every
+    // visible position keeps the same color, so the swap is invisible.
+    translateX.value = 0;
+    cardRotate.value = 0;
+    isAnimating.value = 0;
+    slot1Progress.value = 0;
+    slot2Progress.value = 0;
+    slot3Progress.value = 0;
+    slot2ColorProgress.value = 0;
+    slot3ColorProgress.value = 0;
+    newCardProgress.value = 0;
+
+    // Update flip preload to the NEW next question. Slot 1 is at top:4 with
+    // its back face up — the front face's text update is invisible.
+    setFlipFaceText(questionStack[1]);
+  }, [questionStack]);
+
+  const topCardTextStyle = getSizedTextStyle(displayedTopQuestion.length);
+  const flipCardTextStyle =
+    flipFaceText.length === displayedTopQuestion.length
+      ? topCardTextStyle
+      : getSizedTextStyle(flipFaceText.length);
 
   // ----- swipe-to-skip animation -----
-  // Shared values drive the white card's transform + opacity from the UI
-  // thread (no JS round-trips during the gesture). translateX and cardRotate
-  // update live as the user pans. opacity, cardScale, and topOffset animate
-  // during the swipe-off → new-card-emerge transition.
+  // Shared values driving the v8 cycle. All run on the UI thread (no JS
+  // round-trips during the gesture).
+  //   translateX, cardRotate  — top card's live pan and commit fly-off.
+  //   slot1/2/3Progress       — position/rotation cycle as cards advance one
+  //                             slot forward (0 at rest, 1 fully cycled).
+  //                             Section D wires the interpolations.
+  //   slot2/3ColorProgress    — separate timing for the color shift on cards
+  //                             arriving at slots 2 and 3 (delayed + fast,
+  //                             so no two visible cards ever share a color).
+  //   newCardProgress         — emergence of the freshly-drawn card from
+  //                             slot NEW (off-stack, below) up into slot 3.
+  //   isAnimating             — re-entry guard. 0 at rest, 1 while a cycle
+  //                             is in flight (~800ms from commit to
+  //                             advanceStack). Both gesture
+  //                             callbacks no-op while it's 1 so a mid-cycle
+  //                             pan can't race the swipe-off transform
+  //                             back to the finger.
   const translateX = useSharedValue(0);
   const cardRotate = useSharedValue(0);
-  const opacity = useSharedValue(1);
-  const cardScale = useSharedValue(1);
-  const topOffset = useSharedValue(0);
+  const slot1Progress = useSharedValue(0);
+  const slot2Progress = useSharedValue(0);
+  const slot3Progress = useSharedValue(0);
+  const slot2ColorProgress = useSharedValue(0);
+  const slot3ColorProgress = useSharedValue(0);
+  const newCardProgress = useSharedValue(0);
+  const isAnimating = useSharedValue(0);
 
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    top: topOffset.value,
+  // ----- per-slot animated styles -----
+  // Each slot's at-rest values match the static positions Section C laid
+  // down; the .value of 0 produces an identity transform, so swapping these
+  // in over the static inline styles is visually a no-op at rest. During a
+  // commit cycle, Section E drives the progress values 0 → 1 (and the
+  // color progresses on their own delayed timing), which is when the
+  // interpolations below come alive.
+  //
+  // Slot 0 (top white) — drives translateX + rotate from the live pan and
+  // commit fly-off. -CARD_W/2 preserves the static centering from
+  // styles.whiteCard, which gets fully overridden when an animated
+  // transform applies (RN transforms don't merge across style sources).
+  //
+  // Slot 0 is the persistent white top card. During a swipe it flies off
+  // and stays off-screen (clipped by overflow:hidden) until useLayoutEffect
+  // snaps translateX back to 0 with the new question already loaded.
+  const slot0Style = useAnimatedStyle(() => ({
     transform: [
-      // -CARD_W/2 preserves the static centering from styles.whiteCard's
-      // transform array (which gets fully replaced when this animated style
-      // applies — RN transforms don't merge across style sources).
       { translateX: -CARD_W / 2 + translateX.value },
       { rotate: `${cardRotate.value}deg` },
-      { scale: cardScale.value },
     ],
   }));
 
-  // Called via runOnJS after the swipe-off animation completes. Picks a new
-  // question (which will exclude the just-swiped one because that one was
-  // already markQuestionUsed'd on first render) and snaps the card to a
-  // "behind the back stack" starting position, then animates it forward.
-  const rollNewQuestion = () => {
-    setQuestion(pickQuestion(category, usedQuestions[category]));
-    // Reset to centered horizontally, no tilt; then jump to the emerging
-    // start state (slightly smaller, transparent, pushed down a touch) and
-    // animate toward the final at-rest position.
-    translateX.value = 0;
-    cardRotate.value = 0;
-    cardScale.value = 0.94;
-    opacity.value = 0;
-    topOffset.value = 10;
-    cardScale.value = withSpring(1, { damping: 14, stiffness: 130 });
-    opacity.value = withTiming(1, { duration: 220 });
-    topOffset.value = withTiming(0, { duration: 220 });
+  // Slot 1 — the flipping card. Position interpolates from slot 1's at-rest
+  // values toward slot 0's (so by progress=1 it's sitting exactly where the
+  // top white card used to be).
+  //
+  // Flip uses scaleX (2D), not rotateY. True 3D rotateY on iOS depth-tests
+  // slot 1 against slot 2 beneath it — the lighter card bleeds through as a
+  // vertical split mid-flip. translateZ isn't supported in RN transforms.
+  // scaleX 1→0 (first half) then 0→1 (second half) + opacity face swap at
+  // p=0.5 gives a reliable flip without sibling depth fighting.
+  //
+  // Lift envelope: sin(π·p) peaks at p=0.5. translateY = subtle pickup;
+  // zIndex keeps slot 1 painted above the back stack for the whole flip.
+  const slot1ContainerStyle = useAnimatedStyle(() => {
+    const p = slot1Progress.value;
+    const lift = Math.sin(p * Math.PI);
+    const scaleX =
+      p <= 0.5
+        ? interpolate(p, [0, 0.5], [1, 0])
+        : interpolate(p, [0.5, 1], [0, 1]);
+    return {
+      top: interpolate(p, [0, 1], [4, 0]),
+      zIndex: lift > 0.01 ? SLOT1_FLIP_Z_INDEX : 0,
+      transform: [
+        { translateX: -CARD_W / 2 + interpolate(p, [0, 1], [4, 0]) },
+        { translateY: -lift * SLOT1_LIFT_Y },
+        { rotate: `${interpolate(p, [0, 1], [0.7, 0])}deg` },
+        { scaleX },
+      ],
+    };
+  });
+
+  // Slot 1 face visibility — opacity swap at p=0.5 when scaleX hits edge-on.
+  const slot1BackFaceStyle = useAnimatedStyle(() => ({
+    opacity: slot1Progress.value < 0.5 ? 1 : 0,
+  }));
+  const slot1FrontFaceStyle = useAnimatedStyle(() => ({
+    opacity: slot1Progress.value < 0.5 ? 0 : 1,
+  }));
+
+  // Slot 2 — middle back card. Position drifts from slot 2 toward slot 1's
+  // at-rest values over the 1000ms cycle. The backgroundColor is on its own
+  // separate progress (slot2ColorProgress) — that one is delayed 300ms and
+  // runs in 120ms, so the color flip from "base" to "deeper" happens late
+  // and fast, right before the new white card lands. That late-fast
+  // schedule is the mechanism that keeps the spec's "no two visible cards
+  // share a color at any frame" invariant intact: while card 0 is mid-fly
+  // and slot 1 is mid-flip, slot 2 still reads as base and slot 3 still
+  // reads as lighter, so the four-color silhouette is preserved.
+  const slot2Style = useAnimatedStyle(() => {
+    const p = slot2Progress.value;
+    return {
+      top: interpolate(p, [0, 1], [10, 4]),
+      transform: [
+        { translateX: -CARD_W / 2 + interpolate(p, [0, 1], [9, 4]) },
+        { rotate: `${interpolate(p, [0, 1], [1.7, 0.7])}deg` },
+      ],
+      backgroundColor: interpolateColor(
+        slot2ColorProgress.value,
+        [0, 1],
+        [data.stack.base, data.stack.deeper]
+      ),
+    };
+  });
+
+  // Slot 3 — bottom back card. Same shape as slot 2 but one slot deeper.
+  // Color travels lighter → base on the same delayed-fast schedule.
+  const slot3Style = useAnimatedStyle(() => {
+    const p = slot3Progress.value;
+    return {
+      top: interpolate(p, [0, 1], [16, 10]),
+      transform: [
+        { translateX: -CARD_W / 2 + interpolate(p, [0, 1], [14, 9]) },
+        { rotate: `${interpolate(p, [0, 1], [2.8, 1.7])}deg` },
+      ],
+      backgroundColor: interpolateColor(
+        slot3ColorProgress.value,
+        [0, 1],
+        [data.stack.lighter, data.stack.base]
+      ),
+    };
+  });
+
+  // Slot NEW — the off-stack card sliding up into slot 3's footprint.
+  // Travels top/translateX/rotate from the NEW position to slot 3's at-rest
+  // values, while simultaneously scaling 0.94 → 1 and fading 0 → 1. Color
+  // stays at lighter the whole time (set statically in the JSX); the NEW
+  // card never animates its color.
+  const slotNewStyle = useAnimatedStyle(() => {
+    const p = newCardProgress.value;
+    return {
+      top: interpolate(p, [0, 1], [22, 16]),
+      opacity: interpolate(p, [0, 1], [0, 1]),
+      transform: [
+        { translateX: -CARD_W / 2 + interpolate(p, [0, 1], [19, 14]) },
+        { rotate: `${interpolate(p, [0, 1], [3.9, 2.8])}deg` },
+        { scale: interpolate(p, [0, 1], [0.94, 1]) },
+      ],
+    };
+  });
+
+  // Called via runOnJS when the cycle finishes. Only rotates the question
+  // stack — shared values reset in useLayoutEffect after React commits so
+  // slot 0's Text already shows the new top question (no one-frame flicker
+  // of the dismissed card).
+  const advanceStack = () => {
+    const becomingTop = questionStack[1];
+    markQuestionUsed(category, questionStack[0]);
+    setDisplayedTopQuestion(becomingTop);
+    pendingAnimReset.current = true;
+    setQuestionStack((prev) => {
+      const next = pickQuestion(category, [...usedQuestions[category], ...prev]);
+      return [prev[1], prev[2], prev[3], prev[4], next];
+    });
   };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
+      // Re-entry guard. While a cycle is in flight (commit → 1000ms →
+      // advanceStackAndReset), incoming pans would otherwise overwrite
+      // translateX/cardRotate mid-fly-off and teleport the swiped-off card
+      // back to wherever the finger is. Returning early keeps the cycle
+      // sealed until it completes.
+      if (isAnimating.value) return;
       translateX.value = e.translationX;
       // Subtle physical tilt tied to pan distance — ~1° per 30px swiped.
       cardRotate.value = e.translationX / 30;
     })
     .onEnd((e) => {
+      if (isAnimating.value) return;
       const passedDistance = Math.abs(e.translationX) > SWIPE_DISTANCE;
       const fastFlick = Math.abs(e.velocityX) > SWIPE_VELOCITY;
       if (passedDistance || fastFlick) {
-        // Commit dismiss. Fly the card off in the swipe direction with a
-        // pronounced tilt, fade it out, then trigger the emerge animation.
+        // Commit dismiss. Four things kick off simultaneously at t=0:
+        //   1. Top card (slot 0) flies off ±OFFSCREEN_X with an 18° tilt
+        //      over 320ms (swipeEasing — fast-start, slow-end so it
+        //      accelerates off-screen). NO opacity change; the card clips
+        //      at the stage edge via overflow:hidden on the display.
+        //   2. Slots 1/2/3 cycle forward (CYCLE_DURATION_MS). Slot 1 scaleX-flips.
+        //   3. Color shifts — delayed COLOR_SHIFT_DELAY_MS, 120ms tween.
+        //   4. NEW card — NEW_CARD_DELAY_MS delay, NEW_CARD_DURATION_MS emerge.
+        // slot1Progress completion → runOnJS(advanceStack); layout effect resets.
+        isAnimating.value = 1;
         const direction = e.translationX > 0 ? 1 : -1;
-        translateX.value = withTiming(direction * OFFSCREEN_X, { duration: 200 });
-        cardRotate.value = withTiming(direction * 18, { duration: 200 });
-        opacity.value = withTiming(0, { duration: 180 }, (finished) => {
-          if (finished) runOnJS(rollNewQuestion)();
+        const swipeEasing = Easing.bezier(0.32, 0, 0.67, 0.85);
+        const cycleEasing = Easing.bezier(0.4, 0, 0.2, 1);
+
+        // Card 0 swipe-off — translateX + rotate only, no opacity fade.
+        translateX.value = withTiming(direction * OFFSCREEN_X, {
+          duration: 320,
+          easing: swipeEasing,
         });
+        cardRotate.value = withTiming(direction * 18, {
+          duration: 320,
+          easing: swipeEasing,
+        });
+
+        // Slot 1/2/3 position cycle. runOnJS(advanceStack) on slot1 completion.
+        slot1Progress.value = withTiming(
+          1,
+          { duration: CYCLE_DURATION_MS, easing: cycleEasing },
+          (finished) => {
+            if (finished) runOnJS(advanceStack)();
+          }
+        );
+        slot2Progress.value = withTiming(1, {
+          duration: CYCLE_DURATION_MS,
+          easing: cycleEasing,
+        });
+        slot3Progress.value = withTiming(1, {
+          duration: CYCLE_DURATION_MS,
+          easing: cycleEasing,
+        });
+
+        slot2ColorProgress.value = withDelay(
+          COLOR_SHIFT_DELAY_MS,
+          withTiming(1, { duration: COLOR_SHIFT_DURATION_MS })
+        );
+        slot3ColorProgress.value = withDelay(
+          COLOR_SHIFT_DELAY_MS,
+          withTiming(1, { duration: COLOR_SHIFT_DURATION_MS })
+        );
+
+        newCardProgress.value = withDelay(
+          NEW_CARD_DELAY_MS,
+          withTiming(1, { duration: NEW_CARD_DURATION_MS, easing: cycleEasing })
+        );
       } else {
-        // Not enough — spring back to rest.
+        // Below threshold — spring back to rest.
         translateX.value = withSpring(0);
         cardRotate.value = withSpring(0);
       }
@@ -197,50 +447,84 @@ export default function QuestionCard({
 
       <View style={styles.body}>
         <View style={styles.display}>
-          {/* Back cards, rendered first → sit behind. Order: most-rotated and
-              furthest-down at the back; least-rotated and closest-up at the front. */}
-          <View
+          <View style={styles.displayInner}>
+          {/* Render order goes back-to-front (RN paints in DOM order, so the
+              first child sits deepest in the stack). After the v8 cycle: the
+              NEW card emerges from off-stack into slot 3, each existing back
+              card moves up one slot, and slot 1 flips forward to become the
+              new white top card. Each rendered card sits at its AT-REST
+              position via static inline transforms in Section C — Section D
+              swaps those statics out for useAnimatedStyle bindings that
+              interpolate FROM the at-rest values TO the post-cycle values. */}
+
+          {/* Slot NEW (off-stack, below slot 3). slotNewStyle drives top,
+              translateX, rotate, scale, and opacity from a single shared
+              progress. The lighter color is the only piece that stays
+              static — the NEW card never changes color. */}
+          <Animated.View
             style={[
               styles.cardBase,
-              {
-                backgroundColor: data.stack.lighter,
-                top: 16,
-                transform: [{ translateX: -CARD_W / 2 + 14 }, { rotate: '2.8deg' }],
-              },
+              { backgroundColor: data.stack.lighter },
+              slotNewStyle,
             ]}
           />
-          <View
-            style={[
-              styles.cardBase,
-              {
-                backgroundColor: data.stack.base,
-                top: 10,
-                transform: [{ translateX: -CARD_W / 2 + 9 }, { rotate: '1.7deg' }],
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.cardBase,
-              {
-                backgroundColor: data.stack.deeper,
-                top: 4,
-                transform: [{ translateX: -CARD_W / 2 + 4 }, { rotate: '0.7deg' }],
-              },
-            ]}
-          />
-          <GestureDetector gesture={panGesture}>
+
+          {/* Slot 3 (bottom back). slot3Style owns position + animated
+              backgroundColor (lighter → base on a delayed schedule so the
+              color shift lands late, just before the new white card). */}
+          <Animated.View style={[styles.cardBase, slot3Style]} />
+
+          {/* Slot 2 (middle back). slot2Style owns position + animated
+              backgroundColor (base → deeper). */}
+          <Animated.View style={[styles.cardBase, slot2Style]} />
+
+          {/* Slot 1 (deeper back, closest to white). Carries the flip.
+              Two stacked faces — deeper back (visible first half) and white
+              front (visible second half). slot1ContainerStyle scaleX-flips
+              the container and slides it to slot 0. The front face holds the PRELOADED question
+              (questionStack[1]) — that's what the user sees the instant
+              the flip completes, so it has to be on the front face from
+              mount, not swapped in later. */}
+          <Animated.View style={[styles.slot1Container, slot1ContainerStyle]}>
             <Animated.View
-              style={[styles.cardBase, styles.whiteCard, cardAnimatedStyle]}
+              style={[
+                styles.face,
+                { backgroundColor: data.stack.deeper },
+                slot1BackFaceStyle,
+              ]}
+            />
+            <Animated.View
+              style={[styles.face, styles.faceFront, slot1FrontFaceStyle]}
             >
               <View style={styles.questionWrap}>
-                <Text style={[styles.questionText, sizedTextStyle]}>{question}</Text>
+                <Text style={[styles.questionText, flipCardTextStyle]}>
+                  {flipFaceText}
+                </Text>
+              </View>
+              <View style={styles.flourishWrap}>
+                <Flourish />
+              </View>
+            </Animated.View>
+          </Animated.View>
+
+          {/* Slot 0 (top white) — the gesture-driven card. Reads from
+              questionStack[0]; slot0Style owns its transform (live pan +
+              commit fly-off; no opacity, no scale, no top change). */}
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[styles.cardBase, styles.whiteCard, slot0Style]}
+            >
+              <View style={styles.questionWrap}>
+                <Text style={[styles.questionText, topCardTextStyle]}>
+                  {displayedTopQuestion}
+                </Text>
               </View>
               <View style={styles.flourishWrap}>
                 <Flourish />
               </View>
             </Animated.View>
           </GestureDetector>
+          </View>
         </View>
       </View>
 
@@ -281,15 +565,41 @@ const CARD_H = 360;
 const CARD_RADIUS = 22;
 const FLOURISH_W = 92;
 
-// Swipe-to-skip thresholds.
-//   SWIPE_DISTANCE  — horizontal pan distance (px) needed to commit a re-roll.
-//   SWIPE_VELOCITY  — alternative trigger so quick flicks dismiss even with
-//                     short travel (px/sec).
-//   OFFSCREEN_X     — how far to fly the dismissed card; well beyond any
-//                     phone's viewport width.
-const SWIPE_DISTANCE = 80;
-const SWIPE_VELOCITY = 500;
-const OFFSCREEN_X = 500;
+// Extra vertical room inside the display stage so rotated / lifted cards
+// aren't clipped by overflow:hidden. DISPLAY_HEADROOM_TOP is subtracted
+// from body.paddingTop so the stack's on-screen position stays the same.
+const DISPLAY_HEADROOM_TOP = 50;
+
+// Slot 1 "pick up then flip" — sin(π·progress) peaks at the flip midpoint.
+// translateY gives a subtle pickup. zIndex (not translateZ — RN rejects
+// translateZ in transform arrays) keeps slot 1 composited above slot 2
+// during rotateY so the lighter card underneath doesn't show through.
+const SLOT1_LIFT_Y = 15;
+const SLOT1_FLIP_Z_INDEX = 10;
+
+// Swipe-to-skip thresholds. Bumped in v8 because the heavier cycle
+// animation makes accidental commits more costly (1000ms before another
+// swipe can land) — better to require a deliberate gesture.
+//   SWIPE_DISTANCE  — horizontal pan distance (px) needed to commit a
+//                     re-roll. Raised from 80 to 130 so light grazes don't
+//                     trigger the cycle.
+//   SWIPE_VELOCITY  — alternative trigger so quick flicks dismiss even
+//                     with short travel (px/sec). Raised from 500 to 600
+//                     so slow lazy drags don't slip past as flicks.
+//   OFFSCREEN_X     — how far to fly the dismissed card. Raised from 500
+//                     to 560 to match the v8 swipe-off geometry (the card
+//                     clips at the stage edge via overflow:hidden, and
+//                     560px clears any current phone width with margin).
+const SWIPE_DISTANCE = 130;
+const SWIPE_VELOCITY = 600;
+const OFFSCREEN_X = 560;
+
+// Cycle timings — tuned ~20% faster than spec defaults on device.
+const CYCLE_DURATION_MS = 800;
+const COLOR_SHIFT_DELAY_MS = 240;
+const COLOR_SHIFT_DURATION_MS = 120;
+const NEW_CARD_DELAY_MS = 380;
+const NEW_CARD_DURATION_MS = 380;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -305,15 +615,31 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 80,
+    // 30 here + DISPLAY_HEADROOM_TOP on displayInner.top = original 80px gap
+    // below the topBar — same deck position as pre-flip work (Phase 4).
+    paddingTop: 80 - DISPLAY_HEADROOM_TOP,
   },
   // The display is the centered "stage" for the card stack. Its only purpose
   // is to provide a known center for the absolutely-positioned cards (via
   // `left: '50%'` + a translateX of -CARD_W/2 inside each card's transform).
+  // overflow:'hidden' clips the swipe-off card at the stage edge — the v8
+  // commit flies the top card ±560px, well past the phone's viewport, and
+  // we want it to disappear into the side of the stage cleanly rather than
+  // bleeding over the safe-area or the topBar/bottomBar regions.
+  // Taller than the card stack so the top DISPLAY_HEADROOM_TOP px is empty
+  // clip space (swipe tilt / flip lift). displayInner sits below that band.
   display: {
     width: '100%',
-    height: CARD_H + 28,
+    height: CARD_H + 28 + DISPLAY_HEADROOM_TOP,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  displayInner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: DISPLAY_HEADROOM_TOP,
+    height: CARD_H + 28,
   },
   cardBase: {
     position: 'absolute',
@@ -342,6 +668,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card.bgWhite,
     top: 0,
     transform: [{ translateX: -CARD_W / 2 }],
+  },
+  // Slot 1 carries two stacked faces inside its layout-only container. The
+  // container only does positioning (so it can scaleX-flip + translateY-lift
+  // without owning chrome that double-renders against slot 0).
+  // Each face has its OWN shadow/border/radius — same chrome as cardBase —
+  // so when the front face arrives at slot 0's position at flip end, it's
+  // pixel-identical to slot 0 and the JS-side handoff is invisible.
+  slot1Container: {
+    position: 'absolute',
+    width: CARD_W,
+    height: CARD_H,
+    left: '50%',
+  },
+  face: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 0.5,
+    borderColor: 'rgba(61, 53, 48, 0.15)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  faceFront: {
+    backgroundColor: colors.card.bgWhite,
   },
   // Bounded vertical area for the question (Figma: top 78.6 / bottom 96.6
   // on a 340-tall card, scaled to a 360-tall card). Wrapping the Text in a
