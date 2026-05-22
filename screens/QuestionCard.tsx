@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -542,6 +542,23 @@ export default function QuestionCard({
           }}
           style={styles.cta}
         />
+        {/* Wrap Up — same nextRound() commit as Next Round (the question on
+            screen counts as a completed round), then navigates to Reflection
+            instead of back to CategorySelection. Underlined text link, not a
+            styled button: low-frequency exit, kept visually quieter than the
+            primary CTA so it doesn't compete for attention during play. */}
+        <Pressable
+          onPress={() => {
+            nextRound();
+            navigation.navigate('Reflection');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Wrap up and see reflection"
+          hitSlop={12}
+          style={styles.wrapUpLink}
+        >
+          <Text style={styles.wrapUpLabel}>Wrap Up</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -728,9 +745,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
     paddingBottom: 40,
+    gap: 12,
   },
   cta: {
     width: '100%',
     maxWidth: 300,
+  },
+  wrapUpLink: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  wrapUpLabel: {
+    ...typography.buttonPrimary,
+    color: colors.text.tertiary,
+    textDecorationLine: 'underline',
   },
 });
