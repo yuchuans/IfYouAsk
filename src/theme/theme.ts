@@ -91,9 +91,9 @@ export const typography = {
     letterSpacing: 0,
   },
   question: {
-    fontFamily: 'Lora_400Regular',
+    fontFamily: 'Lora_500Medium',
     fontSize: 26,
-    fontWeight: '400',
+    fontWeight: '500',
     lineHeight: 34,
     letterSpacing: 0,
   },
