@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,7 +36,8 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.container}>
           <Heading variant="app-title" style={styles.centerText}>
             if you ask
           </Heading>
@@ -91,6 +94,7 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
             style={styles.cta}
           />
         </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
