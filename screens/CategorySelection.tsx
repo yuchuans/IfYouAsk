@@ -1,5 +1,17 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import Animated, {
+  type AnimatedStyle,
+  Easing,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 
 import type { RootStackScreenProps } from '../navigation/types';
 import { CategoryIcon } from '../src/components/CategoryIcon';
@@ -49,6 +61,148 @@ export default function CategorySelection({
 }: RootStackScreenProps<'CategorySelection'>) {
   const { player1, player2, askingPlayer, round } = useGame();
 
+  // askingPlayer flips inside nextRound() which is called from QuestionCard —
+  // i.e. while this screen is *not* on top of the stack. Without a focus
+  // gate the handoff animation would run invisibly behind QuestionCard, so
+  // by the time the user navigates back the ring would have already moved
+  // and they'd see no transition. Gating on isFocused + a prev-asker ref
+  // defers the animation until the screen is actually on top.
+  const isFocused = useIsFocused();
+  const prevAskerRef = useRef(askingPlayer);
+
+  // handoffProgress: 0 = orange ring on player 1, 1 = on player 2. Same
+  // shared value drives the orange ring translateX AND both pill background
+  // crossfades, so all 700ms layers are guaranteed to land on the same
+  // frame.
+  const handoffProgress = useSharedValue(askingPlayer === 1 ? 0 : 1);
+
+  // Per-player layered indicators. Initial value = 1 if this player is
+  // currently the asker, else 0 — so the first render shows the settled
+  // state with no animation.
+  const player1Cream = useSharedValue(askingPlayer === 1 ? 1 : 0);
+  const player2Cream = useSharedValue(askingPlayer === 2 ? 1 : 0);
+  const player1Dot = useSharedValue(askingPlayer === 1 ? 1 : 0);
+  const player2Dot = useSharedValue(askingPlayer === 2 ? 1 : 0);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    if (prevAskerRef.current === askingPlayer) return;
+    prevAskerRef.current = askingPlayer;
+
+    handoffProgress.value = withTiming(askingPlayer === 1 ? 0 : 1, {
+      duration: HANDOFF_DURATION,
+      easing: handoffEasing,
+    });
+
+    // Alias the four progress values into "new" / "old" so the four lines
+    // below read like the spec ("old asker exits immediately, new asker
+    // enters after a delay") rather than a tangle of if/else.
+    const newCream = askingPlayer === 1 ? player1Cream : player2Cream;
+    const oldCream = askingPlayer === 1 ? player2Cream : player1Cream;
+    const newDot = askingPlayer === 1 ? player1Dot : player2Dot;
+    const oldDot = askingPlayer === 1 ? player2Dot : player1Dot;
+
+    oldCream.value = withTiming(0, {
+      duration: CREAM_RING_DURATION,
+      easing: handoffEasing,
+    });
+    newCream.value = withDelay(
+      CREAM_RING_DELAY,
+      withTiming(1, { duration: CREAM_RING_DURATION, easing: handoffEasing })
+    );
+
+    oldDot.value = withTiming(0, {
+      duration: DOT_DURATION,
+      easing: handoffEasing,
+    });
+    newDot.value = withDelay(
+      DOT_DELAY,
+      withTiming(1, { duration: DOT_DURATION, easing: handoffEasing })
+    );
+  }, [
+    askingPlayer,
+    isFocused,
+    handoffProgress,
+    player1Cream,
+    player2Cream,
+    player1Dot,
+    player2Dot,
+  ]);
+
+  // The orange ring is the *only* element that moves between players. Its
+  // resting position (translateX 0 with the marginLeft offset in
+  // styles.orangeRing) sits exactly on the row's horizontal center; the
+  // ±73 here lands it on each 76px avatar (centers are 146 apart).
+  const orangeRingStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          handoffProgress.value,
+          [0, 1],
+          [-HANDOFF_DISTANCE / 2, HANDOFF_DISTANCE / 2]
+        ),
+      },
+    ],
+  }));
+
+  // Cream rings + dots — opacity rides progress 1:1; scale grows from the
+  // ring/dot's "collapsed" size at progress 0 to full size at progress 1.
+  const player1CreamRingStyle = useAnimatedStyle(() => ({
+    opacity: player1Cream.value,
+    transform: [
+      {
+        scale: interpolate(
+          player1Cream.value,
+          [0, 1],
+          [CREAM_RING_SCALE_FROM, 1]
+        ),
+      },
+    ],
+  }));
+  const player2CreamRingStyle = useAnimatedStyle(() => ({
+    opacity: player2Cream.value,
+    transform: [
+      {
+        scale: interpolate(
+          player2Cream.value,
+          [0, 1],
+          [CREAM_RING_SCALE_FROM, 1]
+        ),
+      },
+    ],
+  }));
+  const player1DotStyle = useAnimatedStyle(() => ({
+    opacity: player1Dot.value,
+    transform: [
+      { scale: interpolate(player1Dot.value, [0, 1], [DOT_SCALE_FROM, 1]) },
+    ],
+  }));
+  const player2DotStyle = useAnimatedStyle(() => ({
+    opacity: player2Dot.value,
+    transform: [
+      { scale: interpolate(player2Dot.value, [0, 1], [DOT_SCALE_FROM, 1]) },
+    ],
+  }));
+
+  // Pill backgrounds — both pills crossfade on the same handoffProgress
+  // (700ms). They swap colors symmetrically so e.g. P1 going from "asks"
+  // (orange) to "shares" (cream) is exactly mirrored by P2 going cream →
+  // orange.
+  const player1PillStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      handoffProgress.value,
+      [0, 1],
+      [colors.accent.primary, colors.accent.secondary]
+    ),
+  }));
+  const player2PillStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      handoffProgress.value,
+      [0, 1],
+      [colors.accent.secondary, colors.accent.primary]
+    ),
+  }));
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.topBar}>
@@ -72,15 +226,33 @@ export default function CategorySelection({
 
       <View style={styles.container}>
         <View style={styles.playersRow}>
+          {/* Floating orange ring — single shared element that translates
+              between the two avatar positions. Rendered FIRST in playersRow
+              so it sits in DOM order below the two player columns. With
+              every node at default zIndex 0, paint order = DOM order, which
+              puts this ring visually behind the cream rings (which are at
+              zIndex 0 inside their avatarWrap). The ring is visible only
+              through each cream ring's transparent center. */}
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.orangeRing, orangeRingStyle]}
+          />
+
           <PlayerAvatar
             name={player1}
             initial={player1[0].toUpperCase()}
             role={askingPlayer === 1 ? 'asks' : 'shares'}
+            creamRingStyle={player1CreamRingStyle}
+            dotStyle={player1DotStyle}
+            pillStyle={player1PillStyle}
           />
           <PlayerAvatar
             name={player2}
             initial={player2[0].toUpperCase()}
             role={askingPlayer === 2 ? 'asks' : 'shares'}
+            creamRingStyle={player2CreamRingStyle}
+            dotStyle={player2DotStyle}
+            pillStyle={player2PillStyle}
           />
         </View>
 
@@ -106,23 +278,47 @@ type PlayerAvatarProps = {
   name: string;
   initial: string;
   role: 'asks' | 'shares';
+  // useAnimatedStyle() return values from the parent. The parent owns the
+  // shared values + interpolations so the orange ring (shared between both
+  // avatars) can stay in sync with each per-player layer.
+  creamRingStyle: AnimatedStyle<ViewStyle>;
+  dotStyle: AnimatedStyle<ViewStyle>;
+  pillStyle: AnimatedStyle<ViewStyle>;
 };
 
-function PlayerAvatar({ name, initial, role }: PlayerAvatarProps) {
-  const isAsker = role === 'asks';
+function PlayerAvatar({
+  name,
+  initial,
+  role,
+  creamRingStyle,
+  dotStyle,
+  pillStyle,
+}: PlayerAvatarProps) {
   return (
     <View style={styles.playerColumn}>
       <View style={styles.avatarWrap}>
-        {isAsker && <View style={styles.halo} pointerEvents="none" />}
+        {/* Cream ring is now always mounted (instead of conditional on
+            isAsker) — visibility is driven by the animated opacity in
+            creamRingStyle. zIndex 0 keeps it below the avatar circle. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.creamRing, creamRingStyle]}
+        />
         <View style={styles.circle}>
           <Heading style={styles.initial}>{initial}</Heading>
         </View>
-        {isAsker && <View style={styles.askerDot} pointerEvents="none" />}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.askerDot, dotStyle]}
+        />
       </View>
       <Body style={styles.playerName}>{name}</Body>
-      <View style={[styles.rolePill, isAsker ? styles.askPill : styles.sharesPill]}>
+      {/* Pill background is animated via interpolateColor; the label text
+          still swaps instantly via React props (see judgment-calls note in
+          the chat). */}
+      <Animated.View style={[styles.rolePill, pillStyle]}>
         <Label style={styles.roleLabel}>{role}</Label>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -163,12 +359,42 @@ function CategoryCard({ category, onPress }: CategoryCardProps) {
 // ----- constants & styles -----
 
 // Sized down from FirstPlayerSelection's 96/112 halo to match Figma node
-// 267:20 (76 avatar, 92 halo). Same construction: orange disk with an
-// inner cream stroke; here a 3px stroke keeps the ring visually consistent.
+// 267:20 (76 avatar, 92 halo). Construction is now three INDEPENDENT layers
+// (see handoff animation block below) instead of a single filled View:
+//   - Cream ring  (92, anchored to each avatarWrap)
+//   - Orange ring (84, floating in playersRow — only the orange ring moves)
+//   - Asker dot   (24, anchored to each avatarWrap)
 const CIRCLE_SIZE = 76;
 const HALO_SIZE = 92;
 const HALO_OFFSET = (HALO_SIZE - CIRCLE_SIZE) / 2;
 const DOT_SIZE = 24;
+const ORANGE_RING_SIZE = 84;
+const ORANGE_RING_OFFSET = (ORANGE_RING_SIZE - CIRCLE_SIZE) / 2;
+
+// ----- handoff animation -----
+// When askingPlayer flips, every visible piece of the indicator moves on the
+// same easing curve, but with overlapping timings so the eye can follow the
+// orange ring across, see it "land", and then see the cream ring breathe
+// outward + the dot light up around the new asker. Old asker's cream + dot
+// exit immediately (no delay) so they look like they're collapsing into the
+// orange ring as it leaves.
+const HANDOFF_DURATION = 350;
+const CREAM_RING_DURATION = 360;
+const CREAM_RING_DELAY = 175;
+const DOT_DURATION = 280;
+const DOT_DELAY = 370;
+
+// Center-to-center distance between the two avatars (CIRCLE_SIZE 76 + row
+// gap 70). Orange ring translates ±HANDOFF_DISTANCE/2 from row center.
+const HANDOFF_DISTANCE = 146;
+
+// Cream-ring scale-from = 84/92 (matches ORANGE_RING_SIZE / HALO_SIZE), so
+// at scale 0.913 the cream ring's outer edge sits exactly on the orange
+// ring's outer edge — i.e. it grows out of the orange ring's footprint.
+const CREAM_RING_SCALE_FROM = 0.913;
+const DOT_SCALE_FROM = 0.85;
+
+const handoffEasing = Easing.linear;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -242,24 +468,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Orange disk inset behind the cream avatar with a cream inner stroke.
-  // borderWidth 4 with HALO=92 / AVATAR=76 yields equal weights: 4px cream
-  // stroke outside + 4px orange ring visible around the avatar (same ratio
-  // as FirstPlayerSelection's 112/96/4 halo).
-  halo: {
+  // Outermost cream ring — transparent center, 4px cream stroke. The
+  // original `halo` (filled orange disk + cream stroke) was split here: the
+  // ORANGE is now provided by the floating ring (styles.orangeRing, sibling
+  // of the player columns), and this view just contributes the outer cream
+  // stroke that sits 4px past the orange ring.
+  creamRing: {
     position: 'absolute',
     width: HALO_SIZE,
     height: HALO_SIZE,
     top: -HALO_OFFSET,
     left: -HALO_OFFSET,
     borderRadius: HALO_SIZE / 2,
-    backgroundColor: colors.accent.primary,
     borderWidth: 4,
     borderColor: colors.accent.secondary,
+    zIndex: 0,
+  },
+  // Floating orange ring — the one element that translates between players.
+  // Sized so its inner hollow (84 - 4*2 = 76) hugs the 76px avatar; sized
+  // so its outer edge (84) touches the cream ring's inner edge (92 - 4*2 =
+  // 84). Both edges of the orange ring are flush with the two surrounding
+  // surfaces.
+  //
+  // Centered horizontally on playersRow via left:50% + marginLeft:-42 (half
+  // ORANGE_RING_SIZE). The animated transform then translates ±73 to land
+  // on each avatar's center.
+  orangeRing: {
+    position: 'absolute',
+    width: ORANGE_RING_SIZE,
+    height: ORANGE_RING_SIZE,
+    top: -ORANGE_RING_OFFSET,
+    left: '50%',
+    marginLeft: -ORANGE_RING_SIZE / 2,
+    borderRadius: ORANGE_RING_SIZE / 2,
+    borderWidth: 4,
+    borderColor: colors.accent.primary,
+    zIndex: 0,
   },
   // Asker "active turn" indicator (Figma node 267:49). Sits on the top-right
-  // corner of the 76px avatar, peeking just outside the halo. The 3px cream
-  // border separates the dot from the halo behind it.
+  // corner of the 76px avatar, peeking just outside the cream ring. The 3px
+  // cream border separates the dot from whatever's behind it.
   askerDot: {
     position: 'absolute',
     top: -4,
@@ -270,6 +518,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent.primary,
     borderWidth: 3,
     borderColor: colors.accent.secondary,
+    zIndex: 3,
   },
   circle: {
     width: CIRCLE_SIZE,
@@ -278,6 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent.secondary,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   initial: {
     ...typography.playerInitialSmall,
@@ -288,6 +538,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
+  // backgroundColor is provided per-render by the animated pillStyle (an
+  // interpolateColor between accent.primary and accent.secondary tied to
+  // handoffProgress), so the static sharesPill / askPill variants from the
+  // pre-handoff version are gone.
   rolePill: {
     width: CIRCLE_SIZE,
     height: 24,
@@ -295,12 +549,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-  },
-  sharesPill: {
-    backgroundColor: colors.accent.secondary,
-  },
-  askPill: {
-    backgroundColor: colors.accent.primary,
   },
   roleLabel: {
     ...typography.sharesAsks,
