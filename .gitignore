@@ -43,3 +43,8 @@ yarn-error.*
 # AI coding tool config (local only)
 .claude/
 .cursor/
+
+# Local-only files (not for public repo)
+CLAUDE.md
+Question Collection_0518.csv
+SPEC_emergence_v8.md
