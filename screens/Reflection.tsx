@@ -80,24 +80,37 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
   const { round, resetGame } = useGame();
 
   // `round` is the *next* round about to be played; the number of rounds the
-  // players actually completed is round - 1. Reaches 0 if the user hits ✕ on
-  // CategorySelection without playing any rounds; the headline copy reads
-  // slightly oddly in that case ("You're 0 steps closer to each other") but
-  // it's a realistic edge that we'll leave as-is rather than add a guard.
+  // players actually completed is round - 1. Reaches 0 if the user taps ✕ on
+  // CategorySelection without playing any rounds — typically a first-time
+  // user clicking around to see what each button does, not a deliberate
+  // exit after a session. We branch to a neutral copy block ("Nothing shared
+  // yet") in that case rather than the reward copy, which would presume
+  // emotional intent the user may not have.
   const roundsPlayed = round - 1;
+  const isZeroRounds = roundsPlayed === 0;
 
-  // The heading is laid out in three segments. Segment 1 + segment 2 share
-  // a row (so the stripe can sit absolutely behind seg 2); segment 3 sits
-  // on its own row below. The global character index spans all three
-  // segments continuously — the visual line break between segments 2 and
-  // 3 is purely structural, the typing animation just keeps marching
-  // through indices.
+  // Normal-path heading is laid out in three segments. Segment 1 + segment 2
+  // share a row (so the stripe can sit absolutely behind seg 2); segment 3
+  // sits on its own row below. The global character index spans all three
+  // segments continuously — the visual line break between segments 2 and 3
+  // is purely structural, the typing animation just keeps marching through
+  // indices.
+  //
+  // Zero-rounds heading is a single flat string — no segmentation, no stripe.
   const seg1 = "You're ";
-  const seg2 = `${roundsPlayed} steps`;
+  // Singular/plural agreement: "1 step closer" vs "2 steps closer". seg2's
+  // char count flows through to seg3Start and headingTotalChars via the
+  // existing `seg1.length + seg2.length` math, so the animation timing and
+  // stripe geometry auto-adjust when the word loses its 's'.
+  const seg2 = `${roundsPlayed} ${roundsPlayed === 1 ? 'step' : 'steps'}`;
   const seg3 = 'closer to each other';
   const seg1Start = 0;
   const seg2Start = seg1.length;
   const seg3Start = seg1.length + seg2.length;
+  const zeroRoundsHeading = 'Nothing shared yet';
+  const headingTotalChars = isZeroRounds
+    ? zeroRoundsHeading.length
+    : seg1.length + seg2.length + seg3.length;
 
   // headingProgress: a counter that walks 0 → totalChars linearly. Each
   // AnimatedChar reads its own slice (index .. index + CHAR_OVERLAP) and
@@ -111,19 +124,17 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
   const subTranslateY = useSharedValue(SUB_TRANSLATE_FROM);
 
   useEffect(() => {
-    // Captured at mount. roundsPlayed (and therefore seg2.length) is fixed
-    // for the lifetime of this Reflection screen — the game state doesn't
-    // change while we're sitting on the wrap-up — so closing over these
-    // values is safe.
+    // Captured at mount. The branch choice (isZeroRounds) and segment
+    // lengths are fixed for the lifetime of this Reflection screen — the
+    // game state doesn't change while we're sitting on the wrap-up — so
+    // closing over these values is safe.
     // Animate progress past the last character index by CHAR_OVERLAP so the
     // final characters' fade windows (index .. index + CHAR_OVERLAP) actually
     // complete. Without this, the last 9 chars only reach opacity
     // ((index_advance - i) / 9) at animation end — the trailing word fades
     // out instead of arriving fully visible.
-    const headingTotalChars = seg1.length + seg2.length + seg3.length;
     const headingTarget = headingTotalChars + CHAR_OVERLAP;
     const headingDuration = headingTarget * CHAR_INTERVAL_MS;
-    const stripeStartAt = INITIAL_DELAY_MS + seg1.length * CHAR_INTERVAL_MS;
     // "Visually done" — when the last char's fade window is halfway through
     // (~50% opaque, readable). The remaining CHAR_OVERLAP/2 frames are just
     // the tail of the wash, which we let overlap with the subheading entry
@@ -131,9 +142,6 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
     const headingVisualDoneAt =
       INITIAL_DELAY_MS +
       (headingTotalChars + Math.floor(CHAR_OVERLAP / 2)) * CHAR_INTERVAL_MS;
-    const stripeDoneAt = stripeStartAt + PAINT_DURATION_MS;
-    const subStartAt =
-      Math.max(headingVisualDoneAt, stripeDoneAt) + SUB_DELAY_MS;
 
     headingProgress.value = withDelay(
       INITIAL_DELAY_MS,
@@ -143,10 +151,21 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
       })
     );
 
-    stripeProgress.value = withDelay(
-      stripeStartAt,
-      withTiming(1, { duration: PAINT_DURATION_MS, easing: stripeEasing })
-    );
+    // Stripe only runs in the normal path — for zero rounds there's no
+    // number to highlight, so we skip the stripe entirely and the subheading
+    // just waits on the heading.
+    let stripeDoneAt = 0;
+    if (!isZeroRounds) {
+      const stripeStartAt = INITIAL_DELAY_MS + seg1.length * CHAR_INTERVAL_MS;
+      stripeDoneAt = stripeStartAt + PAINT_DURATION_MS;
+      stripeProgress.value = withDelay(
+        stripeStartAt,
+        withTiming(1, { duration: PAINT_DURATION_MS, easing: stripeEasing })
+      );
+    }
+
+    const subStartAt =
+      Math.max(headingVisualDoneAt, stripeDoneAt) + SUB_DELAY_MS;
 
     subOpacity.value = withDelay(
       subStartAt,
@@ -156,10 +175,10 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
       subStartAt,
       withTiming(0, { duration: SUB_DURATION_MS, easing: subheadingEasing })
     );
-    // Run-on-mount only. seg1/seg2/seg3 are stable for the screen's
-    // lifetime (game state doesn't mutate during Reflection), so omitting
-    // them from deps is intentional — we don't want to retrigger the
-    // sequence if React re-renders for any reason.
+    // Run-on-mount only. isZeroRounds and the segment lengths are stable for
+    // the screen's lifetime (game state doesn't mutate during Reflection),
+    // so omitting them from deps is intentional — we don't want to retrigger
+    // the sequence if React re-renders for any reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -196,64 +215,94 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
           />
         </View>
 
-        <View style={styles.bottomSection}>
+        <View
+          style={[
+            styles.bottomSection,
+            isZeroRounds && styles.bottomSectionZeroRounds,
+          ]}
+        >
           <View style={styles.copy}>
             <View style={styles.headingBlock}>
-              <View style={styles.headingLine1}>
+              {isZeroRounds ? (
                 <Heading variant="bold">
-                  {seg1.split('').map((c, i) => (
+                  {zeroRoundsHeading.split('').map((c, i) => (
                     <AnimatedChar
-                      key={`s1-${i}`}
+                      key={`zr-${i}`}
                       char={c}
-                      index={seg1Start + i}
+                      index={i}
                       progress={headingProgress}
                     />
                   ))}
                 </Heading>
-                <View style={styles.highlightedWord}>
-                  <Animated.View
-                    style={[styles.highlightStripe, stripeStyle]}
-                  />
+              ) : (
+                <>
+                  <View style={styles.headingLine1}>
+                    <Heading variant="bold">
+                      {seg1.split('').map((c, i) => (
+                        <AnimatedChar
+                          key={`s1-${i}`}
+                          char={c}
+                          index={seg1Start + i}
+                          progress={headingProgress}
+                        />
+                      ))}
+                    </Heading>
+                    <View style={styles.highlightedWord}>
+                      <Animated.View
+                        style={[styles.highlightStripe, stripeStyle]}
+                      />
+                      <Heading variant="bold">
+                        {seg2.split('').map((c, i) => (
+                          <AnimatedChar
+                            key={`s2-${i}`}
+                            char={c}
+                            index={seg2Start + i}
+                            progress={headingProgress}
+                          />
+                        ))}
+                      </Heading>
+                    </View>
+                  </View>
                   <Heading variant="bold">
-                    {seg2.split('').map((c, i) => (
+                    {seg3.split('').map((c, i) => (
                       <AnimatedChar
-                        key={`s2-${i}`}
+                        key={`s3-${i}`}
                         char={c}
-                        index={seg2Start + i}
+                        index={seg3Start + i}
                         progress={headingProgress}
                       />
                     ))}
                   </Heading>
-                </View>
-              </View>
-              <Heading variant="bold">
-                {seg3.split('').map((c, i) => (
-                  <AnimatedChar
-                    key={`s3-${i}`}
-                    char={c}
-                    index={seg3Start + i}
-                    progress={headingProgress}
-                  />
-                ))}
-              </Heading>
+                </>
+              )}
             </View>
             {/* Wrap Body in Animated.View — Body itself is a plain Text, so
                 the parent View is what we animate. Opacity on a View
                 cascades to text children. */}
             <Animated.View style={subheadingStyle}>
               <Body variant="subheading" style={styles.subheading}>
-                One for each question you took{'\n'}the time to share and let in
+                {isZeroRounds
+                  ? 'Start drawing a question card\nwhenever you are ready'
+                  : 'One for each question you took\nthe time to share and let in'}
               </Body>
             </Animated.View>
           </View>
-          <Button
-            label="New Game"
-            onPress={() => {
-              resetGame();
-              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-            }}
-            style={styles.cta}
-          />
+          {/* Zero-rounds case: no CTA. The back arrow in the topBar already
+              gives the user the most useful action — return to
+              CategorySelection with player names and first-asker still
+              intact — which is almost always what they want after tapping
+              ✕ accidentally. New Game would wipe their session and force a
+              re-entry from Welcome, which is the wrong default here. */}
+          {!isZeroRounds && (
+            <Button
+              label="New Game"
+              onPress={() => {
+                resetGame();
+                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+              }}
+              style={styles.cta}
+            />
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -332,6 +381,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 80,
+  },
+  // Zero-rounds variant: with no CTA Button rendered, the copy block would
+  // otherwise hug the bottom of bottomSection (justifyContent: 'flex-end').
+  // Add paddingBottom equal to (Button height 56 + sibling gap 80) so the
+  // copy lands at the same vertical position as the normal-path copy does
+  // when the Button is present. If the Button's intrinsic height changes
+  // (theme tweak, label wraps to two lines), this number needs to follow.
+  bottomSectionZeroRounds: {
+    paddingBottom: 80 + 56,
   },
   cta: {
     width: '100%',
