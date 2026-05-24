@@ -7,15 +7,15 @@ title: Terms of Service
 **Effective date:** May 24, 2026
 **Last updated:** May 24, 2026
 
-These Terms of Service ("Terms") govern your use of the If You Ask mobile application ("If You Ask," "the app"). The app is published by Yuchuan Shan, an individual developer based in Massachusetts, USA ("we," "us," "our"). By downloading, installing, or using If You Ask, you agree to these Terms. If you do not agree, please do not use the app.
+These Terms of Service ("Terms") govern your use of the if you ask mobile application ("if you ask," "the app"). The app is published by Yuchuan Shan, an individual developer based in Massachusetts, USA ("we," "us," "our"). By downloading, installing, or using the app, you agree to these Terms. If you do not agree, please do not use the app.
 
 ## 1. License to use the app
 
-We grant you a personal, non-exclusive, non-transferable, revocable license to download and use If You Ask on devices you own or control, for your personal, non-commercial enjoyment. This license is granted by us; the Apple App Store and Google Play Store distribute the app on our behalf but are not parties to these Terms.
+We grant you a personal, non-exclusive, non-transferable, revocable license to download and use the app on devices you own or control, for your personal, non-commercial enjoyment. This license is granted by us; the Apple App Store and Google Play Store distribute the app on our behalf but are not parties to these Terms.
 
 ## 2. Acceptable use
 
-If You Ask is a conversation game intended for personal entertainment. You agree not to:
+The app is a conversation game intended for personal entertainment. You agree not to:
 
 - Reverse-engineer, decompile, or attempt to extract the source code of the app, except where applicable law expressly permits it.
 - Modify, redistribute, sell, sublicense, or create derivative works of the app or its content (including question text) without our prior written permission.
@@ -23,35 +23,35 @@ If You Ask is a conversation game intended for personal entertainment. You agree
 
 ## 3. Content and questions
 
-The questions and prompts shown in If You Ask are intended as starting points for conversation between consenting adults or among friends and family. They are not therapeutic, medical, or professional advice. You are responsible for choosing what to share and what not to share when playing. We are not responsible for the content of conversations you have while using the app.
+The questions and prompts shown in the app are intended as starting points for conversation between consenting adults or among friends and family. They are not therapeutic, medical, or professional advice. You are responsible for choosing what to share and what not to share when playing. We are not responsible for the content of conversations you have while using the app.
 
 ## 4. Purchase and refunds
 
-If You Ask is a paid app sold through the Apple App Store and the Google Play Store. All purchases and refunds are handled by those platforms under their respective terms. We do not process payments directly and cannot issue refunds outside of the App Store or Play Store refund processes.
+The app is sold as a paid download through the Apple App Store and the Google Play Store. All purchases and refunds are handled by those platforms under their respective terms. We do not process payments directly and cannot issue refunds outside of the App Store or Play Store refund processes.
 
 ## 5. No warranty
 
-If You Ask is provided "as is" and "as available," without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the app will be uninterrupted, error-free, or compatible with every device or operating system version.
+The app is provided "as is" and "as available," without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the app will be uninterrupted, error-free, or compatible with every device or operating system version.
 
 ## 6. Limitation of liability
 
-To the maximum extent permitted by law, we will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of data, goodwill, or profits, arising out of or related to your use of If You Ask. Our total liability for any claim related to the app will not exceed the amount you paid to download it.
+To the maximum extent permitted by law, we will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of data, goodwill, or profits, arising out of or related to your use of the app. Our total liability for any claim related to it will not exceed the amount you paid to download it.
 
 ## 7. Privacy
 
-Your use of If You Ask is also governed by our [Privacy Policy](privacy-policy.html), which describes the (very limited) ways the app handles information. In short: the app collects no personal data.
+Your use of the app is also governed by our [Privacy Policy](privacy-policy.html), which describes the (very limited) ways the app handles information. In short: the app collects no personal data.
 
 ## 8. Changes to these Terms
 
-We may update these Terms from time to time. If we make material changes, we will revise the "Last updated" date above and, where appropriate, note the change in the app's store listing. Your continued use of If You Ask after a change means you accept the updated Terms.
+We may update these Terms from time to time. If we make material changes, we will revise the "Last updated" date above and, where appropriate, note the change in the app's store listing. Your continued use of the app after a change means you accept the updated Terms.
 
 ## 9. Termination
 
-These Terms remain in effect while you use If You Ask. You may stop using the app and delete it at any time. We may suspend or terminate the license granted in Section 1 if you materially breach these Terms.
+These Terms remain in effect while you use the app. You may stop using it and delete it at any time. We may suspend or terminate the license granted in Section 1 if you materially breach these Terms.
 
 ## 10. Governing law
 
-These Terms are governed by the laws of the Commonwealth of Massachusetts, United States, without regard to its conflict-of-laws principles. Any dispute arising out of or related to these Terms or to If You Ask will be brought exclusively in the state or federal courts located in Massachusetts, and you consent to the personal jurisdiction of those courts.
+These Terms are governed by the laws of the Commonwealth of Massachusetts, United States, without regard to its conflict-of-laws principles. Any dispute arising out of or related to these Terms or to the app will be brought exclusively in the state or federal courts located in Massachusetts, and you consent to the personal jurisdiction of those courts.
 
 ## 11. Contact
 
