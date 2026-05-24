@@ -4,8 +4,8 @@ title: Privacy Policy
 
 # Privacy Policy
 
-**Effective date:** May 23, 2026
-**Last updated:** May 23, 2026
+**Effective date:** May 24, 2026
+**Last updated:** May 24, 2026
 
 This Privacy Policy describes how the If You Ask mobile application ("If You Ask," "the app," "we," "us," or "our") handles information when you use it. If You Ask is published by Yuchuan Shan, an individual developer based in Massachusetts, USA.
 

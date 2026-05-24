@@ -4,8 +4,8 @@ title: Terms of Service
 
 # Terms of Service
 
-**Effective date:** May 23, 2026
-**Last updated:** May 23, 2026
+**Effective date:** May 24, 2026
+**Last updated:** May 24, 2026
 
 These Terms of Service ("Terms") govern your use of the If You Ask mobile application ("If You Ask," "the app"). The app is published by Yuchuan Shan, an individual developer based in Massachusetts, USA ("we," "us," "our"). By downloading, installing, or using If You Ask, you agree to these Terms. If you do not agree, please do not use the app.
 
