@@ -30,6 +30,12 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cc2d2de7-359f-437e-b48e-f560feee6c61"
+      }
+    },
+    "owner": "shanyc9510"
   }
 }
