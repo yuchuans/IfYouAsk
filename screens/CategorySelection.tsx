@@ -312,7 +312,23 @@ function PlayerAvatar({
           style={[styles.askerDot, dotStyle]}
         />
       </View>
-      <Body style={styles.playerName}>{name}</Body>
+      {/* Flex-grow slot for the player name. The two columns end up the
+          same total height (playersRow's default alignItems: 'stretch'
+          enforces this), and within each column nameSlot's flex: 1 lets
+          the slot adapt to whichever of the two names is taller — 1, 2,
+          or 3 lines — instead of permanently reserving 3 lines. That
+          keeps the pill below at the same Y across both columns while
+          eliminating the wasted vertical gap when both names are short.
+          The Body centers within the slot via justifyContent, so a
+          shorter 1-line name aligns its vertical center with a taller
+          2- or 3-line name in the other column. numberOfLines caps any
+          wrap that somehow exceeds the design assumption — a safety
+          cap, not a height reservation. See styles.nameSlot below. */}
+      <View style={styles.nameSlot}>
+        <Body style={styles.playerName} numberOfLines={NAME_SLOT_LINES}>
+          {name}
+        </Body>
+      </View>
       {/* Pill background is animated via interpolateColor; the label text
           still swaps instantly via React props (see judgment-calls note in
           the chat). */}
@@ -371,6 +387,31 @@ const DOT_SIZE = 24;
 const ORANGE_RING_SIZE = 84;
 const ORANGE_RING_OFFSET = (ORANGE_RING_SIZE - CIRCLE_SIZE) / 2;
 
+// Width of each player's column. Wider than CIRCLE_SIZE (76) on purpose so
+// common 10–11-char names ("Catherine", "Christopher", "Maximilian") fit on
+// a single line of typography.playerName (Lora Medium 18 — wide serif,
+// ~9.5px/char average). The avatar (76) stays centered inside this 108-wide
+// column via playerColumn's alignItems: 'center', so the visible avatar /
+// halo / dot / pill positions don't move — only the invisible column
+// boundary (= the name's wrap width) grows outward.
+//
+// The avatar center-to-center distance is the load-bearing invariant here:
+// it has to stay equal to HANDOFF_DISTANCE so the orange-ring transform
+// still lands on each avatar's center. Since center-to-center = column
+// width + row gap, widening the column means shrinking the row gap by the
+// same amount — see playersRow.gap below for the inline computation.
+const NAME_SLOT_WIDTH = 108;
+
+// Hard cap on how many lines a player name can wrap to. 3 lines is the
+// worst case for a NAME_MAX_LENGTH (20) name in this 76px column: wide
+// letters on narrow devices can push that many chars to 3 lines. Anything
+// the input accepts must render in full here — truncating a name the user
+// was allowed to type is a UX bug, so the Body's numberOfLines prop uses
+// this constant as its cap. The slot's actual height is no longer derived
+// from this constant; see styles.nameSlot below for the flex-based sizing
+// that adapts to whichever of the two names is taller.
+const NAME_SLOT_LINES = 3;
+
 // ----- handoff animation -----
 // When askingPlayer flips, every visible piece of the indicator moves on the
 // same easing curve, but with overlapping timings so the eye can follow the
@@ -384,8 +425,10 @@ const CREAM_RING_DELAY = 175;
 const DOT_DURATION = 280;
 const DOT_DELAY = 370;
 
-// Center-to-center distance between the two avatars (CIRCLE_SIZE 76 + row
-// gap 70). Orange ring translates ±HANDOFF_DISTANCE/2 from row center.
+// Center-to-center distance between the two avatars (NAME_SLOT_WIDTH 108 +
+// row gap 38 = 146). Orange ring translates ±HANDOFF_DISTANCE/2 from row
+// center. This value is the load-bearing visual invariant — see
+// NAME_SLOT_WIDTH above and playersRow.gap below.
 const HANDOFF_DISTANCE = 146;
 
 // Cream-ring scale-from = 84/92 (matches ORANGE_RING_SIZE / HALO_SIZE), so
@@ -454,10 +497,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 70,
+    // Computed so center-to-center of the two avatars stays equal to
+    // HANDOFF_DISTANCE (146). When NAME_SLOT_WIDTH widened from 76 → 108
+    // to fit longer names on one line, this gap had to shrink from 70 → 38
+    // by exactly the same amount to keep the orange-ring transform landing
+    // on each avatar's center.
+    gap: HANDOFF_DISTANCE - NAME_SLOT_WIDTH,
   },
   playerColumn: {
-    width: CIRCLE_SIZE,
+    // 108 (not CIRCLE_SIZE) so names up to ~11 chars wrap-free. The
+    // CIRCLE_SIZE-wide avatar still sits centered inside the column via
+    // alignItems: 'center', so its visible pixel position is unchanged.
+    width: NAME_SLOT_WIDTH,
     alignItems: 'center',
     // No uniform gap — Figma uses 12 between avatar and name, 8 between
     // name and pill. See playerName / rolePill marginTop below.
@@ -533,10 +584,45 @@ const styles = StyleSheet.create({
     ...typography.playerInitialSmall,
     textAlign: 'center',
   },
+  // Vertical-flex name slot sitting 12px below the avatar (Figma spec).
+  //
+  // flexGrow: 1 (NOT the `flex: 1` shorthand) is load-bearing here. In
+  // React Native, `flex: 1` expands to { flexGrow: 1, flexShrink: 1,
+  // flexBasis: 0 } — the `flexBasis: 0` part tells the layout engine
+  // that this item contributes ZERO to its parent's intrinsic height.
+  // The column would then size itself to just (avatar + pill) and the
+  // name would render into a zero-height box (invisible). flexGrow: 1
+  // alone leaves flexBasis at its 'auto' default, which means "start at
+  // content size, then grow if there's available space" — exactly what
+  // we want: the column's natural height includes the name's intrinsic
+  // line count, and the slot still grows when stretched.
+  //
+  // Combined with playersRow's default alignItems: 'stretch' (flex-row
+  // default), both columns end up at the same total height = the height
+  // of the taller column's natural content. The taller column's
+  // nameSlot is exactly tall enough for its name (1, 2, or 3 lines);
+  // the shorter column's nameSlot stretches to match, and
+  // justifyContent: 'center' vertically centers the shorter name in
+  // that stretched space. Net effect across the three cases:
+  //   - Both names 1 line  → slot is 1 line, original 12/8 spacing
+  //                          (avatar→name, name→pill) preserved.
+  //   - Longer name 2 ln,  → slot is 2 lines. Longer name fills the slot
+  //     shorter 1 ln         (12/8 spacing preserved against IT); shorter
+  //                          name is centered → its vertical midline
+  //                          aligns with the longer name's midline.
+  //   - Longer name 3 ln   → same logic with 3-line slot.
+  //
+  // Both pills always land at the same Y because both columns share the
+  // same total height. Names never get truncated (numberOfLines = 3 is
+  // a safety cap, not a reservation).
+  nameSlot: {
+    flexGrow: 1,
+    marginTop: 12,
+    justifyContent: 'center',
+  },
   playerName: {
     ...typography.playerName,
     textAlign: 'center',
-    marginTop: 12,
   },
   // backgroundColor is provided per-render by the animated pillStyle (an
   // interpolateColor between accent.primary and accent.secondary tied to

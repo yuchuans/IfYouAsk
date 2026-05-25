@@ -109,7 +109,16 @@ function PlayerCircle({ name, initial, selected, onPress }: PlayerCircleProps) {
           <Heading style={styles.initial}>{initial}</Heading>
         </View>
       </View>
-      <Body style={styles.playerName}>{name}</Body>
+      {/* Fixed-height slot for the player name. circlesRow uses
+          alignItems: 'center', so without a constant-height name area the
+          column with the taller name would pull its circle upward relative
+          to the other — visually misaligning the two circles. The slot
+          reserves the same vertical space in both columns. */}
+      <View style={styles.nameSlot}>
+        <Body style={styles.playerName} numberOfLines={NAME_SLOT_LINES}>
+          {name}
+        </Body>
+      </View>
     </Pressable>
   );
 }
@@ -127,6 +136,31 @@ function Divider() {
 const CIRCLE_SIZE = 96;
 const HALO_SIZE = 112;
 const HALO_OFFSET = (HALO_SIZE - CIRCLE_SIZE) / 2;
+
+// Width of each player's column. Wider than CIRCLE_SIZE (96) so common
+// 10–11-char names ("Catherine", "Christopher") fit on a single line of
+// typography.playerName (Lora Medium 18 — wide serif, ~9.5px/char). The
+// CIRCLE_SIZE avatar stays centered inside this 108-wide column via
+// playerButton's alignItems: 'center', so the avatar / halo themselves
+// don't move — only the invisible column boundary (= the name's wrap
+// width) grows outward by 6px on each side.
+//
+// Side effect: each circle's outer edge ends up ~6px further from the
+// "or" divider that sits between the two columns (circlesRow.gap stays
+// 24, so the divider's breathing room is preserved; the visible
+// circle-to-circle space grows by ~12px total). This is a deliberate
+// trade — keeping the divider comfortable is more important than holding
+// the exact original circle-to-circle distance, since nothing animates
+// across that distance on this screen.
+const NAME_SLOT_WIDTH = 108;
+
+// Reserve a 3-line slot for the player name so both columns are the same
+// height — keeps the two circles aligned even if one name wraps and the
+// other doesn't. 3 lines matches the worst-case wrap for a NAME_MAX_LENGTH
+// (20) name; the input cap and the slot must agree so any accepted name
+// renders in full.
+const NAME_SLOT_LINES = 3;
+const NAME_SLOT_HEIGHT = typography.playerName.lineHeight * NAME_SLOT_LINES;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -163,7 +197,10 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   playerButton: {
-    width: CIRCLE_SIZE,
+    // 108 (not CIRCLE_SIZE) so 10–11-char names wrap-free. The CIRCLE_SIZE
+    // avatar still sits centered via alignItems: 'center', so its visible
+    // pixel position only shifts ~6px outward from the divider.
+    width: NAME_SLOT_WIDTH,
     alignItems: 'center',
     gap: 12,
   },
@@ -198,6 +235,12 @@ const styles = StyleSheet.create({
   initial: {
     ...typography.playerInitialLarge,
     textAlign: 'center',
+  },
+  // Fixed-height box below the circle. Spacing from the circle is handled
+  // by playerButton's gap:12, so this only owns its own height + centering.
+  nameSlot: {
+    height: NAME_SLOT_HEIGHT,
+    justifyContent: 'center',
   },
   playerName: {
     ...typography.playerName,

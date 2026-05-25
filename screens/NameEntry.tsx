@@ -21,8 +21,13 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
 
   // Names are written to GameContext on Continue (not passed via nav params).
   // Downstream screens use the FIRST LETTER of each name as the player's
-  // avatar initial, so do NOT truncate or set maxLength here — names must
-  // keep their first character intact.
+  // avatar initial, so the first character is always preserved — maxLength
+  // caps total input, not the leading letter.
+  //
+  // NAME_MAX_LENGTH: caps display name so it wraps to at most 3 lines in
+  // the 76px column on CategorySelection (which reserves a 3-line slot to
+  // match). Without this cap, very long names (10+ lines) blow out the
+  // players row and squeeze the category cards below.
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
 
@@ -56,6 +61,7 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
                 style={styles.input}
                 value={player1}
                 onChangeText={setPlayer1}
+                maxLength={NAME_MAX_LENGTH}
                 placeholder="Name"
                 placeholderTextColor={colors.text.tertiary}
                 returnKeyType="next"
@@ -73,6 +79,7 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
                 style={styles.input}
                 value={player2}
                 onChangeText={setPlayer2}
+                maxLength={NAME_MAX_LENGTH}
                 placeholder="Name"
                 placeholderTextColor={colors.text.tertiary}
                 returnKeyType="done"
@@ -99,6 +106,13 @@ export default function NameEntry({ navigation }: RootStackScreenProps<'NameEntr
     </SafeAreaView>
   );
 }
+
+// Caps display name to fit in the 3-line slot reserved on CategorySelection
+// and FirstPlayerSelection. Accommodates real names ("Christopher Smith" = 17,
+// "Maria de la Cruz" = 16) while preventing extreme inputs from blowing out
+// the players row. If you bump this, also bump NAME_SLOT_LINES on both
+// screens — the input cap and the display slot have to agree.
+const NAME_MAX_LENGTH = 20;
 
 const styles = StyleSheet.create({
   safeArea: {
