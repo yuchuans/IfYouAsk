@@ -14,7 +14,10 @@
     },
     "ios": {
       "bundleIdentifier": "com.yuchuanshan.ifyouask",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.yuchuanshan.ifyouask",
@@ -36,6 +39,12 @@
         "projectId": "cc2d2de7-359f-437e-b48e-f560feee6c61"
       }
     },
-    "owner": "shanyc9510"
+    "owner": "shanyc9510",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cc2d2de7-359f-437e-b48e-f560feee6c61"
+    }
   }
 }
