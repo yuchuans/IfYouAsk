@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -178,8 +178,29 @@ export default function QuestionCard({
     slot3ColorProgress.value = 0;
     newCardProgress.value = 0;
 
-    // Update flip preload to the NEW next question. Slot 1 is at top:4 with
-    // its back face up — the front face's text update is invisible.
+    // Update flip preload to the NEW next question. On iOS, by the time
+    // this runs the UI thread has already snapped slot 1 back to its
+    // at-rest position with the back face up — so the front-face text
+    // update is invisible.
+    //
+    // On Android, reanimated shared-value writes above (slot1Progress = 0,
+    // etc.) are applied on the UI thread on the NEXT frame, but React's
+    // setState commits the new flipFaceText to the bridge synchronously.
+    // That ordering means slot 1's front-face Text content is replaced
+    // (B → C) one frame BEFORE slot 1's container snaps from slot 0's
+    // position back to slot 1's position — and since slot 1's front face
+    // is still visually occupying slot 0's spot for that one frame, the
+    // user sees the next-next question (C) briefly flash before slot 1
+    // moves away. Defer the React state update by one frame with
+    // requestAnimationFrame so the UI thread has time to apply
+    // slot1Progress = 0 first. By the time setFlipFaceText runs, slot 1's
+    // back face is up and the front-face content change is invisible.
+    if (Platform.OS === 'android') {
+      const rafId = requestAnimationFrame(() => {
+        setFlipFaceText(questionStack[1]);
+      });
+      return () => cancelAnimationFrame(rafId);
+    }
     setFlipFaceText(questionStack[1]);
   }, [questionStack]);
 
@@ -497,7 +518,19 @@ export default function QuestionCard({
               style={[styles.face, styles.faceFront, slot1FrontFaceStyle]}
             >
               <View style={styles.questionWrap}>
-                <Text style={[styles.questionText, flipCardTextStyle]}>
+                <Text
+                  style={[
+                    styles.questionText,
+                    flipCardTextStyle,
+                    Platform.OS === 'android' && styles.questionTextAndroid,
+                  ]}
+                  // Android-only: disable OS-level font scaling so Android
+                  // doesn't run a deferred re-measurement pass after first
+                  // paint (which causes the post-flip text-size shift).
+                  // iOS keeps the RN default (true) so Dynamic Type still
+                  // applies there — visual behavior unchanged on iOS.
+                  allowFontScaling={Platform.OS === 'android' ? false : undefined}
+                >
                   {flipFaceText}
                 </Text>
               </View>
@@ -515,7 +548,18 @@ export default function QuestionCard({
               style={[styles.cardBase, styles.whiteCard, slot0Style]}
             >
               <View style={styles.questionWrap}>
-                <Text style={[styles.questionText, topCardTextStyle]}>
+                <Text
+                  style={[
+                    styles.questionText,
+                    topCardTextStyle,
+                    Platform.OS === 'android' && styles.questionTextAndroid,
+                  ]}
+                  // Android-only: see slot 1 front face above. Both Text
+                  // nodes need the same props/styles so the flip-end handoff
+                  // stays pixel-identical (they share the same questionWrap
+                  // geometry and need to measure the same way).
+                  allowFontScaling={Platform.OS === 'android' ? false : undefined}
+                >
                   {displayedTopQuestion}
                 </Text>
               </View>
@@ -732,6 +776,34 @@ const styles = StyleSheet.create({
     ...typography.question,
     color: colors.text.primary,
     textAlign: 'center',
+  },
+  // Android-only companion to questionText. Pins the Text node to the full
+  // inner vertical space of questionWrap (CARD_H 360 − top 82 − bottom 102 =
+  // 176) and uses native vertical centering instead of relying on the parent
+  // questionWrap's flex justification. Why: on Android, the Text node can
+  // re-measure on a second paint pass; when it's flex-centered, that
+  // re-measure re-runs the parent's justify-content and shows up as a
+  // visible size/position shift right after a swipe. Locking the Text to a
+  // fixed height removes the re-measure-dependent layout path entirely.
+  // iOS doesn't take this style (Platform.OS branch in the Text style array)
+  // and keeps the existing flex-centered behavior, where it works fine.
+  //
+  // includeFontPadding: false removes Android's default font-metric padding
+  // (extra space above ascender / below descender). Default behavior on
+  // Android is to add this padding to every Text node and re-resolve it on
+  // each style-prop change — that re-resolution is what causes the
+  // post-flip "size shift" symptom even when fontSize / lineHeight don't
+  // actually change. With this off, glyph positioning depends purely on
+  // lineHeight (which is stable across the commit) and the visual shift
+  // can't happen. Android-only style prop; iOS ignores it if it leaks
+  // through, but we still guard at the call site for clarity.
+  //
+  // textAlignVertical is also Android-only and is a no-op on iOS.
+  // Worst-case wrap across all three font tiers fits within 176px.
+  questionTextAndroid: {
+    height: 176,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   flourishWrap: {
     position: 'absolute',

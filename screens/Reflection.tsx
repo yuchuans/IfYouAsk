@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -17,7 +17,7 @@ import { Button } from '../src/components/Button';
 import { IconButton } from '../src/components/IconButton';
 import { Body, Heading } from '../src/components/typography';
 import { useGame } from '../src/context/GameContext';
-import { colors } from '../src/theme';
+import { colors, typography } from '../src/theme';
 
 // ----- text-reveal animation constants -----
 // CHAR_INTERVAL_MS sets the per-character cadence (so headingProgress
@@ -57,13 +57,23 @@ type AnimatedCharProps = {
   progress: SharedValue<number>;
 };
 
-// Per-character renderer. Each character is its own Animated.Text mounted
-// inline inside a parent Heading (which is itself a Text), so font / color
-// / weight flow down via the usual nested-Text inheritance and we only
-// override opacity per character. Lives at module scope because each
-// AnimatedChar owns its own useAnimatedStyle hook, and React doesn't allow
-// hooks inside a .map() — the component boundary gives us the per-index
-// hook isolation we need.
+// iOS per-character renderer. Each character is its own Animated.Text
+// mounted inline inside a parent Heading (which is itself a Text), so
+// font / color / weight flow down via the usual nested-Text inheritance
+// and we only override opacity per character. Lives at module scope
+// because each AnimatedChar owns its own useAnimatedStyle hook, and
+// React doesn't allow hooks inside a .map() — the component boundary
+// gives us the per-index hook isolation we need.
+//
+// Why iOS-only: on Android the native text layout collapses nested
+// <Text> children into a single Spannable, and the Spannable API
+// silently drops animated per-span alpha — so the per-char opacity
+// here renders as nothing on Android. AndroidAnimatedChar (below) is
+// the Android counterpart and uses Animated.View > Text instead, which
+// composites each char as its own native layer with its own animatable
+// opacity. Each AndroidAnimatedChar takes up the same physical layout
+// space as a normal text char from t=0 (opacity 0), so the heading
+// block has its full dimensions reserved from mount — no layout shift.
 function AnimatedChar({ char, index, progress }: AnimatedCharProps) {
   const style = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -74,6 +84,27 @@ function AnimatedChar({ char, index, progress }: AnimatedCharProps) {
     ),
   }));
   return <Animated.Text style={style}>{char}</Animated.Text>;
+}
+
+const androidCharTextStyle = [
+  typography.headingBold,
+  { color: colors.text.primary },
+];
+
+function AndroidAnimatedChar({ char, index, progress }: AnimatedCharProps) {
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      progress.value,
+      [index, index + CHAR_OVERLAP],
+      [0, 1],
+      Extrapolation.CLAMP
+    ),
+  }));
+  return (
+    <Animated.View style={style}>
+      <Text style={androidCharTextStyle}>{char}</Text>
+    </Animated.View>
+  );
 }
 
 export default function Reflection({ navigation }: RootStackScreenProps<'Reflection'>) {
@@ -113,8 +144,13 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
     : seg1.length + seg2.length + seg3.length;
 
   // headingProgress: a counter that walks 0 → totalChars linearly. Each
-  // AnimatedChar reads its own slice (index .. index + CHAR_OVERLAP) and
-  // interpolates 0→1 opacity over that window.
+  // per-character renderer (AnimatedChar on iOS, AndroidAnimatedChar on
+  // Android) reads its own slice (index .. index + CHAR_OVERLAP) and
+  // interpolates 0→1 opacity over that window. Both platforms share this
+  // shared value and the same fade-wash math — the only difference is
+  // the per-char wrapper (Animated.Text on iOS vs Animated.View > Text
+  // on Android), which is what makes the per-char alpha animate on
+  // Android. See AnimatedChar / AndroidAnimatedChar at module scope.
   const headingProgress = useSharedValue(0);
   // stripeProgress: 0 = unpainted, 1 = fully painted. Drives scaleX of the
   // absolute-positioned stripe behind seg 2.
@@ -191,6 +227,58 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
     transform: [{ translateY: subTranslateY.value }],
   }));
 
+  // Render one full heading segment (wrapper + children), branched by
+  // platform. The wrapper element itself has to differ: on iOS we wrap
+  // chars in <Heading> (a <Text>) so each <Animated.Text> child
+  // inherits the parent's font / weight / lineHeight via the standard
+  // nested-Text inheritance; on Android we wrap them in a flex-row
+  // <View> because per-char alpha must animate on an Animated.View
+  // (not on a <Text> inside a parent <Text> — see AndroidAnimatedChar
+  // module comment).
+  //
+  // Both branches use the same headingProgress shared value and the
+  // same per-char index window, so the animation timing is identical
+  // across platforms. `start` is the global character index where this
+  // segment begins (seg1Start / seg2Start / seg3Start) so each char's
+  // opacity ramp aligns with its position in the continuous reveal.
+  //
+  // Caveat: on Android the chars are individually-laid-out Views, so
+  // we lose kerning between characters (every char gets its natural
+  // width). At 28px headings this widens each segment by ~2–5%, which
+  // is visually subtle. Worth the trade vs. a static-render heading.
+  const renderHeadingSegment = (
+    segment: string,
+    start: number,
+    keyPrefix: string
+  ) => {
+    if (Platform.OS === 'android') {
+      return (
+        <View style={styles.androidHeadingRow}>
+          {segment.split('').map((c, i) => (
+            <AndroidAnimatedChar
+              key={`${keyPrefix}-${i}`}
+              char={c}
+              index={start + i}
+              progress={headingProgress}
+            />
+          ))}
+        </View>
+      );
+    }
+    return (
+      <Heading variant="bold">
+        {segment.split('').map((c, i) => (
+          <AnimatedChar
+            key={`${keyPrefix}-${i}`}
+            char={c}
+            index={start + i}
+            progress={headingProgress}
+          />
+        ))}
+      </Heading>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.topBar}>
@@ -224,55 +312,19 @@ export default function Reflection({ navigation }: RootStackScreenProps<'Reflect
           <View style={styles.copy}>
             <View style={styles.headingBlock}>
               {isZeroRounds ? (
-                <Heading variant="bold">
-                  {zeroRoundsHeading.split('').map((c, i) => (
-                    <AnimatedChar
-                      key={`zr-${i}`}
-                      char={c}
-                      index={i}
-                      progress={headingProgress}
-                    />
-                  ))}
-                </Heading>
+                renderHeadingSegment(zeroRoundsHeading, 0, 'zr')
               ) : (
                 <>
                   <View style={styles.headingLine1}>
-                    <Heading variant="bold">
-                      {seg1.split('').map((c, i) => (
-                        <AnimatedChar
-                          key={`s1-${i}`}
-                          char={c}
-                          index={seg1Start + i}
-                          progress={headingProgress}
-                        />
-                      ))}
-                    </Heading>
+                    {renderHeadingSegment(seg1, seg1Start, 's1')}
                     <View style={styles.highlightedWord}>
                       <Animated.View
                         style={[styles.highlightStripe, stripeStyle]}
                       />
-                      <Heading variant="bold">
-                        {seg2.split('').map((c, i) => (
-                          <AnimatedChar
-                            key={`s2-${i}`}
-                            char={c}
-                            index={seg2Start + i}
-                            progress={headingProgress}
-                          />
-                        ))}
-                      </Heading>
+                      {renderHeadingSegment(seg2, seg2Start, 's2')}
                     </View>
                   </View>
-                  <Heading variant="bold">
-                    {seg3.split('').map((c, i) => (
-                      <AnimatedChar
-                        key={`s3-${i}`}
-                        char={c}
-                        index={seg3Start + i}
-                        progress={headingProgress}
-                      />
-                    ))}
-                  </Heading>
+                  {renderHeadingSegment(seg3, seg3Start, 's3')}
                 </>
               )}
             </View>
@@ -352,6 +404,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headingLine1: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  // Android-only: row container that takes the place of a <Heading>
+  // (<Text>) wrapper around AndroidAnimatedChar children. Each child is
+  // an <Animated.View> wrapping a <Text>, so the parent has to be a
+  // <View> with flex-row layout — putting a <View> inside a <Text> is
+  // illegal in RN. alignItems: 'baseline' keeps the chars' text
+  // baselines aligned even though they're separate views, so the
+  // segment still reads as one line of text.
+  androidHeadingRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
