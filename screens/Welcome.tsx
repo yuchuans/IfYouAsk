@@ -15,9 +15,18 @@ export default function Welcome({ navigation }: RootStackScreenProps<'Welcome'>)
           if you ask
         </Heading>
 
+        {/* Spacer ratios 3:2:2 keep the CardStack at roughly its original
+            Y position (when stackWrap was flex:1 and absorbed all slack)
+            while making the gap above the copy block equal to the gap
+            below it — so the copy is visually centered between the
+            cards' bottom edge and the "Let's begin" button. */}
+        <View style={styles.spacerTop} />
+
         <View style={styles.stackWrap}>
           <CardStack />
         </View>
+
+        <View style={styles.spacerMid} />
 
         <View style={styles.copy}>
           <Heading style={styles.centerText}>
@@ -27,6 +36,8 @@ export default function Welcome({ navigation }: RootStackScreenProps<'Welcome'>)
             These questions are a place to start
           </Body>
         </View>
+
+        <View style={styles.spacerBot} />
 
         <Button
           label="Let’s begin"
@@ -81,10 +92,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stackWrap: {
-    flex: 1,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  spacerTop: {
+    flex: 3,
+  },
+  spacerMid: {
+    flex: 2,
+  },
+  spacerBot: {
+    flex: 2,
   },
   stack: {
     width: STACK_WIDTH,
@@ -131,9 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   copy: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 12,
   },
   subheading: {
