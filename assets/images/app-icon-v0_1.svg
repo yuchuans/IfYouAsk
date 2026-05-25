@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>If You Ask — app icon source</title>
+  <desc>Hand-of-cards icon for the If You Ask iOS/Android app. Three category cards fanning from a hand-held pivot point below the canvas — gold (Wait What?) at the back, green (Just Vibing) in the middle, terracotta (Dig Deep) just behind a blank white question card layered on top as the fourth card in the fan. Cream background. 1024x1024 square canvas, no rounded corners (iOS applies the mask automatically).</desc>
+
+  <rect id="background" x="0" y="0" width="1024" height="1024" fill="#fbf6f0"/>
+
+  <rect id="card-wait-what" x="129" y="203" width="440" height="615" rx="44" fill="#deba3a" transform="rotate(-14 349 510.5)"/>
+
+  <rect id="card-just-vibing" x="246" y="188" width="440" height="615" rx="44" fill="#4a8e58"/>
+
+  <rect id="card-dig-deep" x="363" y="203" width="440" height="615" rx="44" fill="#b5654a" transform="rotate(14 583 510.5)"/>
+
+  <rect id="card-question" x="427" y="223" width="440" height="615" rx="44" fill="#ffffff" stroke="#3d3530" stroke-width="2" stroke-opacity="0.2" transform="rotate(22 647 530.5)"/>
+</svg>

@@ -17,7 +17,6 @@ export type RootStackParamList = {
     category: CategoryId;
   };
   Reflection: undefined;
-  DesignSystemTest: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

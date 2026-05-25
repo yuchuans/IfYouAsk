@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { RootStackScreenProps } from '../navigation/types';
@@ -33,16 +33,6 @@ export default function Welcome({ navigation }: RootStackScreenProps<'Welcome'>)
           onPress={() => navigation.navigate('NameEntry')}
           style={styles.cta}
         />
-
-        <Pressable
-          onPress={() => navigation.navigate('DesignSystemTest')}
-          hitSlop={12}
-          style={styles.devLink}
-          accessibilityRole="link"
-          accessibilityLabel="Open Design System test screen"
-        >
-          <Body style={styles.devLinkText}>Design System</Body>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -84,7 +74,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 43,
-    paddingBottom: 16,
+    paddingBottom: 40,
     alignItems: 'center',
   },
   centerText: {
@@ -141,9 +131,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   copy: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
-    marginBottom: 32,
   },
   subheading: {
     color: colors.text.secondary,
@@ -152,12 +143,5 @@ const styles = StyleSheet.create({
   cta: {
     width: '100%',
     maxWidth: 300,
-  },
-  devLink: {
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  devLinkText: {
-    color: colors.text.tertiary,
   },
 });
