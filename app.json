@@ -23,7 +23,7 @@
       "package": "com.yuchuanshan.ifyouask",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#fbf6f0"
+        "backgroundColor": "#E8AD85"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
