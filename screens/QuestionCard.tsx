@@ -590,11 +590,17 @@ export default function QuestionCard({
             screen counts as a completed round), then navigates to Reflection
             instead of back to CategorySelection. Underlined text link, not a
             styled button: low-frequency exit, kept visually quieter than the
-            primary CTA so it doesn't compete for attention during play. */}
+            primary CTA so it doesn't compete for attention during play.
+            replace() (not navigate()) swaps QuestionCard out of the stack as
+            Reflection is pushed in, so Reflection's back button — and the
+            Android hardware back — both land on CategorySelection regardless
+            of whether the user reached Reflection via Wrap Up here or via
+            CategorySelection's ✕. Without this, goBack() from Reflection
+            would pop to QuestionCard on the Wrap Up path. */}
         <Pressable
           onPress={() => {
             nextRound();
-            navigation.navigate('Reflection');
+            navigation.replace('Reflection');
           }}
           accessibilityRole="button"
           accessibilityLabel="Wrap up and see reflection"
