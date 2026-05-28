@@ -31,12 +31,12 @@ export const STARTER_QUESTIONS: readonly string[] = [
 ];
 
 /**
- * Per-category gameplay question pools. Counts as of 2026-05-24:
- *   justVibing: 34
- *   digDeep:    33
- *   waitWhat:   33
- * Ordering follows the Notion source-of-truth IDs (JV1→JV34, DD1→DD33,
- * WW1→WW33) so that future CSV regenerations produce minimal diffs.
+ * Per-category gameplay question pools. Counts as of 2026-05-28:
+ *   justVibing: 40
+ *   digDeep:    40
+ *   waitWhat:   40
+ * Ordering follows the Notion source-of-truth IDs (JV1→JV40, DD1→DD40,
+ * WW1→WW40) so that future CSV regenerations produce minimal diffs.
  */
 export const QUESTIONS: Record<CategoryId, readonly string[]> = {
   justVibing: [
@@ -74,6 +74,12 @@ export const QUESTIONS: Record<CategoryId, readonly string[]> = {
     "What’s a very specific errand or household chore you secretly enjoy?",
     "What’s something you always notice in other people’s homes?",
     "What’s your favorite way to spend an evening alone?",
+    "What’s your favorite nickname someone has given you? What’s your least favorite?",
+    "What color do you like wearing most these days, and why?",
+    "On an ordinary Wednesday night, who would you want to do nothing with?",
+    "What’s a silly little thing you keep doing?",
+    "What’s a photo of yourself that you really love? Who took it, and where were you?",
+    "What kind of kid were you in middle school?",
   ],
   digDeep: [
     "What do people do that makes you feel loved?",
@@ -86,12 +92,12 @@ export const QUESTIONS: Record<CategoryId, readonly string[]> = {
     "What makes you feel seen and understood by someone?",
     "What’s something you want more of in your life lately?",
     "Who’s someone who changed the way you see yourself or the world, and how?",
-    "What’s one thing you think makes me “me”?",
+    "What’s one thing about me that feels unmistakably me to you?",
     "What was the last movie that made you cry, and what about it hit you emotionally?",
     "Do you find it easy or hard to apologize when you’re wrong?",
     "What do you like most about your current life?",
     "How are you feeling now compared to this time yesterday?",
-    "Who’s someone you really look up to, and why?",
+    "Who’s someone you admire more than they probably realize?",
     "What’s something you’re grateful your younger self didn’t give up on?",
     "What’s something you’re still learning how to handle?",
     "What’s a misconception people often have about you?",
@@ -109,6 +115,13 @@ export const QUESTIONS: Record<CategoryId, readonly string[]> = {
     "What’s the best advice you’ve ever received from someone unexpected?",
     "What do you think it was like to raise you when you were a child?",
     "What’s something you learned about love from watching other people?",
+    "In what ways are you similar to the people who raised you?",
+    "What does being in love feel like to you?",
+    "Do your emotions usually show, or do you hide them well?",
+    "Who do you feel safe being vulnerable with, and what makes you feel that way?",
+    "When was the last time you cried around someone else? What about by yourself?",
+    "What would your 16-year-old self think of your life now?",
+    "What three words best capture the way you see me?",
   ],
   waitWhat: [
     "Who was the most unhinged teacher or professor you’ve ever had?",
@@ -144,5 +157,12 @@ export const QUESTIONS: Record<CategoryId, readonly string[]> = {
     "If people worshipped you 500 years from now, what oddly specific thing would they worship you for?",
     "If you woke up 200 years in the future, what’s the first thing you’d ask?",
     "If your apartment had a secret opinion about you, what would it be?",
+    "Would you rather have a pet that could talk, or one that stayed exactly like a normal pet?",
+    "If I sleepwalked, what do you think you’d catch me doing?",
+    "What movie made you seriously question your will to stay in the theater?",
+    "If we switched bodies for a day, what would you be most curious to try?",
+    "What’s the most dramatic thing you accidentally did as a kid?",
+    "What food made you react like you’d been personally attacked?",
+    "What would a stranger assume about you from the fifth-to-last photo on your phone?",
   ],
 };
